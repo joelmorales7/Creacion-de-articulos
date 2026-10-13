@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Creación de artículos</title>
+<style>
+:root{--bg:#f2f4f6;--pn:#fff;--ink:#17212b;--mut:#5d6b78;--ln:#d9dfe5;--ac:#0b6b8a;--acs:#e3f1f6;--wr:#fff3d6;--wrt:#8a5a00;--ok:#2b7a4b}
+@media (prefers-color-scheme:dark){:root{--bg:#10161c;--pn:#18212a;--ink:#e8edf2;--mut:#9aa8b5;--ln:#2b3844;--ac:#5cb8d6;--acs:#173441;--wr:#3b2f12;--wrt:#f0c36a;--ok:#6fcf97}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 ui-sans-serif,"Segoe UI",system-ui,sans-serif}
+main{max-width:1280px;margin:0 auto;padding:28px 20px 60px}
+h1{font-size:26px;margin:0 0 4px;letter-spacing:-.01em}
+h2{font-size:17px;margin:0 0 12px}
+p.sub{margin:0 0 24px;color:var(--mut);max-width:70ch}
+section{background:var(--pn);border:1px solid var(--ln);border-radius:6px;padding:20px;margin-bottom:20px}
+.slots{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.slot{border:1.5px dashed var(--ln);border-radius:6px;padding:14px;cursor:pointer;display:block}
+.slot:hover,.slot.over{border-color:var(--ac);background:var(--acs)}
+.slot.ok{border-style:solid;border-color:var(--ok)}
+.slot b{display:block}.slot small{color:var(--mut)}.slot .st{display:block;margin-top:8px;font-size:13px}
+.slot input{display:none}
+.opts{display:flex;gap:16px;flex-wrap:wrap;margin:18px 0 6px;align-items:end}
+label.f{display:flex;flex-direction:column;font-size:13px;color:var(--mut);gap:4px}
+input[type=text],select,input[type=number]{font:inherit;color:var(--ink);background:var(--pn);border:1px solid var(--ln);border-radius:4px;padding:6px 8px}
+button{font:inherit;font-weight:600;border:0;border-radius:4px;padding:9px 18px;background:var(--ac);color:#fff;cursor:pointer}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.ghost{background:transparent;color:var(--ac);border:1px solid var(--ac)}
+:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.strip{display:flex;flex-wrap:wrap;border:1px solid var(--ln);border-radius:6px}
+.strip div{flex:1 1 140px;padding:12px 16px;border-right:1px solid var(--ln)}
+.strip div:last-child{border-right:0}
+.strip strong{display:block;font-size:26px;line-height:1.1}
+.strip span{font-size:13px;color:var(--mut)}
+.todo{margin:16px 0 4px;padding:12px 16px;background:var(--acs);border-radius:6px}
+.todo ul{margin:6px 0 0;padding-left:20px}
+table{border-collapse:collapse;width:100%}
+th,td{padding:5px 8px;border-bottom:1px solid var(--ln);text-align:left;white-space:nowrap;font-size:13px}
+th{position:sticky;top:0;background:var(--pn);z-index:1;color:var(--mut);font-weight:600}
+td input,td select{width:100%;min-width:60px;padding:3px 5px;font-size:13px}
+td input.n{width:70px}
+td.bad{background:var(--wr)}td.bad input,td.bad select{border-color:var(--wrt)}
+.code{font-family:ui-monospace,Consolas,monospace}
+.tw{max-height:560px;overflow:auto;border:1px solid var(--ln);border-radius:6px}
+.bar{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:16px 0 10px}
+.bar .sp{flex:1}
+.tag{font-size:12px;padding:1px 7px;border-radius:10px;background:var(--acs);color:var(--ac)}
+.tag.t{background:var(--wr);color:var(--wrt)}
+.err{color:#b3261e;margin-top:10px;white-space:pre-line}
+.note{color:var(--mut);font-size:13px}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+<main>
+<h1>Creación de artículos</h1>
+<p class="sub">Carga el despacho del proveedor y la data de ICG. La herramienta detecta qué códigos de barras no existen en tu sistema, te resume qué hay que crear y arma la plantilla de creación. Todo se procesa en tu navegador; los archivos no se suben a ningún servidor.</p>
+
+<section>
+<h2>1. Carga los archivos</h2>
+<div class="slots">
+ <label class="slot" id="s_prov"><b>Despacho del proveedor</b><small>Excel con Codigo Barras, REFERENCIA PADRE, Talla, Color, Grupo, Genero, Linea, Modelo, MSRP, Categoria</small><span class="st">Sin cargar</span><input type="file" accept=".xlsx,.xlsm,.xls,.csv"></label>
+ <label class="slot" id="s_icg"><b>Artículos en ICG</b><small>Excel con COD BARRAS, Referencia y SKU_PADRE</small><span class="st">Sin cargar</span><input type="file" accept=".xlsx,.xlsm,.xls,.csv"></label>
+ <label class="slot" id="s_tree"><b>Árbol de códigos</b><small>LOGICA_DE_ARBOL…xlsm, con la hoja _lookup</small><span class="st">Sin cargar</span><input type="file" accept=".xlsx,.xlsm,.xls"></label>
+</div>
+<div class="opts">
+ <label class="f">Temporada<input type="text" id="temp" value="FALL 2026"></label>
+ <label class="f">Marca<select id="marca"><option>NEW BALANCE</option></select></label>
+ <button id="go" disabled>Analizar</button>
+</div>
+<div class="err" id="err"></div>
+</section>
+
+<section id="out" hidden>
+<h2>2. Resumen</h2>
+<div class="strip" id="strip"></div>
+<div class="todo" id="todo"></div>
+</section>
+
+<section id="tbl" hidden>
+<h2>3. Plantilla de creación</h2>
+<p class="note">Las celdas en amarillo están vacías o son una suposición de la herramienta: revísalas o corrígelas aquí antes de descargar. Talla, color, descripción, familia, subfamilia y línea se pueden editar.</p>
+<div class="bar">
+ <label class="f">Mostrar<select id="ftipo"><option value="">Todos</option><option>SKU NUEVO</option><option>TALLA NUEVA</option></select></label>
+ <label class="f">Buscar<input type="text" id="fq" placeholder="Referencia o código"></label>
+ <label style="margin-top:18px"><input type="checkbox" id="fpend"> Solo por revisar</label>
+ <span class="sp"></span>
+ <button id="dl" style="margin-top:18px">Descargar plantilla Excel</button>
+</div>
+<div class="tw"><table><thead><tr><th>Tipo</th><th>Código de barras</th><th>Referencia</th><th>Talla</th><th>Color</th><th>Descripción</th><th>Dpto</th><th>Secc</th><th>Familia</th><th>Subfam</th><th>Línea</th><th>Marca</th><th>Precio</th><th>Género</th></tr></thead><tbody id="tb"></tbody></table></div>
+<p class="note" id="more"></p>
+</section>
+</main>
+
+<script id="core">
+const N=s=>String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toUpperCase();
+const clean=s=>N(s).replace(/[^A-Z0-9]+/g,' ').trim();
+const dg=v=>String(v==null?'':v).replace(/\D/g,'').replace(/^0+/,'');
+const nk=a=>a.map(o=>{const r={};for(const k in o)r[N(k)]=o[k];return r;});
+const title=s=>String(s).toLowerCase().replace(/(^|[\s\-\/(])([a-z])/g,(m,a,b)=>a+b.toUpperCase());
+const keys=(m,p)=>Object.keys(m).filter(k=>k.startsWith(p)).map(k=>[k.slice(p.length),m[k]]);
+const HEAD=['CREACION SI/NO','Codigo Barras','Referencia','Talla','COLOR','Descripcion','Departamento','Seccion','Familia','subfamilia','linea','marca','pisada','ancho','temporada','SKU padre','descripcion web','precio 1','precio 2','precio 3','precio 4','precio 5','precio 7','descuento grupo p ','descripcion adiciona','excel','idshopi','GENERO'];
+const NEED=['Departamento','Seccion','Familia','subfamilia','linea','marca','Talla','COLOR','Descripcion','precio 1'];
+const SYN={TSHIRT:['T SHIRT','TSHIRT','TEE','TEES','SHIRT','TANK','TOP','LONG SLEEVE','SINGLET','POLO'],PANT:['PANT','PANTS','LEGGING','LEGGINGS','TIGHT','TIGHTS','JOGGER','TROUSER'],SHORT:['SHORT','SHORTS'],JACKET:['JACKET','VEST','HOODIE','PULLOVER','SWEATSHIRT','FLEECE','ANORAK'],BRA:['BRA'],DRESS:['DRESS'],VESTIDO:['DRESS','VESTIDO'],FALDA:['SKIRT','SKORT','FALDA'],'MINI CREW':['CREW'],NST:['NO SHOW','NST'],CAMISETAS:['CAMISETA','TEE','TEES','SHIRT','TANK']};
+SYN.TSHRT=SYN.TSHIRT;
+const EN={SOCKS:'MEDIAS',SOCK:'MEDIAS',HEADWEAR:'GORRAS',HAT:'GORRAS',HATS:'GORRAS',CAP:'GORRAS',BAG:'BOLSOS',BACKPACK:'MOCHILAS',GLOVES:'GUANTES',BELT:'CINTURON'};
+const SZ={SM:'S',MD:'M',LG:'L'};
+
+function buildTree(R){
+  const T={dept:{},sec:{},fam:{},sub:{},marca:{},lin:{}};
+  const put=(m,k,c)=>{if(k!=null&&k!==''&&c!=null&&c!=='')m[N(k)]=Number(c);};
+  for(const r of R){put(T.dept,r[0],r[1]);put(T.sec,r[4],r[5]);put(T.fam,r[8],r[9]);put(T.sub,r[12],r[13]);put(T.marca,r[16],r[17]);put(T.lin,r[20],r[21]);}
+  return T;
+}
+function talla(t){t=String(t==null?'':t).trim();const m=t.toUpperCase().match(/^(XXS|XS|SM|MD|LG|XL|XXL|XXXL|2XL|3XL|S|M|L)0$/);return m?(SZ[m[1]]||m[1]):t;}
+function color(c){return String(c==null?'':c).split('/')[0].replace(/\([^)]*\)/g,'').replace(/[\s\d]+$/,'').trim().toUpperCase();}
+function secAcc(p,T,d){
+  for(const v of [p['DESCRIPCION'],p['GRUPO'],p['LINEA']]){const x=N(v);if(!x)continue;
+    for(const c of [x,x+'S',x.replace(/S$/,''),EN[x]]){if(c&&T.sec[d+'|'+c]!=null)return T.sec[d+'|'+c];}}
+  const w=N(p['GRUPO']+' '+p['NOMBRE E COMMERCE']);
+  for(const k in EN)if(new RegExp('\\b'+k+'\\b').test(w)&&T.sec[d+'|'+EN[k]]!=null)return T.sec[d+'|'+EN[k]];
+}
+function linList(T,mc){
+  T._ll=T._ll||{};
+  return T._ll[mc]||(T._ll[mc]=keys(T.lin,mc+'|').map(([n,c])=>[clean(n),c]).filter(x=>x[0]).sort((a,b)=>b[0].length-a[0].length));
+}
+function descr(p,foot,g,marca){
+  if(foot)return (title(marca)+' '+(g==='Men'?'Mens ':g==='Women'?'Womens ':g+' ')+title(String(p['MODELO']||'').trim())).replace(/\s+/g,' ').trim();
+  let s=String(p['GRUPO']||p['NOMBRE E COMMERCE']||'').trim().replace(/""/g,'"').replace(/^"|"$/g,'').replace(/\s+[A-Z]{2,4}-\d{3,6}$/,'');
+  s=title(s);return /^nb /i.test(s)?s:'Nb '+s;
+}
+function mk(p,b,tipo,T,o){
+  const cat=N(p['CATEGORIA']),gen=N(p['GENERO']),fl={};
+  const foot=/FOOT|CALZ/.test(cat),app=/APPAREL|ROPA/.test(cat),acc=!foot&&!app;
+  const kid=/GIRL|BOY|KID|YOUTH|JUNIOR|INFANT|TODDLER|NINO/.test(gen);
+  const g0=kid?'Kids':/^WOM|MUJER/.test(gen)?'Women':/^MEN|HOMBRE/.test(gen)?'Men':/UNISEX/.test(gen)?'Unisex':String(p['GENERO']||'');
+  const ref=String(p['REFERENCIA PADRE']||'').trim();
+  const uni=foot&&/^U\d/i.test(ref),g=uni?'Unisex':g0;
+  const dept=acc?T.dept['ACCESORIOS']:g0==='Men'?T.dept['HOMBRE']:g0==='Women'?T.dept['MUJER']:g0==='Kids'?T.dept['NINOS']:undefined;
+  const sec=foot?T.sec[dept+'|ZAPATILLAS']:app?T.sec[dept+'|ROPA']:secAcc(p,T,dept);
+  let fam=T.fam[dept+'|'+sec+'|'+N(p['LINEA'])];
+  if(fam==null&&acc&&sec!=null)fam=1;
+  if(fam!=null&&!foot)fl.Familia=1;
+  const dsc=descr(p,foot,g,o.marca);
+  let sub=0;
+  if(!foot){
+    const L=keys(T.sub,dept+'|'+sec+'|'+fam+'|');
+    if(fam==null)sub='';
+    else if(L.length){sub='';
+      const txt=' '+clean(dsc+' '+(p['GRUPO']||'')).replace(/\bSHORT SLEEVES?\b/g,'')+' ';
+      for(const [n,c] of L){if((SYN[n]||[n]).some(k=>txt.includes(' '+clean(k)+' '))){sub=c;break;}}
+    }
+  }
+  const mc=T.marca[N(o.marca)];
+  let lin=0;
+  if(foot){lin='';const m=' '+clean(p['MODELO'])+' ';const h=linList(T,mc).find(x=>m.includes(' '+x[0]+' '));if(h){lin=h[1];if(h[0]!==clean(p['MODELO']))fl.linea=1;}}
+  let tl=talla(p['TALLA']);
+  if(uni&&/^\d+(\.\d+)?$/.test(tl)){const n=parseFloat(tl);tl='H'+n+'|M'+(n+1.5);}
+  const ms=parseFloat(p['MSRP']),pr=ms>0?+(ms-0.05).toFixed(2):'';
+  const w=(ref.match(/-(2A|B|D|2E|4E|E)$/)||[])[1]||'D';
+  return {'CREACION SI/NO':tipo,'Codigo Barras':Number(b),'Referencia':ref,'Talla':tl,'COLOR':color(p['COLOR']),'Descripcion':dsc,
+    'Departamento':dept??'','Seccion':sec??'','Familia':fam??'','subfamilia':sub,'linea':lin,'marca':mc??'','pisada':foot?'NEUTRAL':'','ancho':foot?w:'',
+    'temporada':o.temporada,'SKU padre':ref,'descripcion web':dsc,'precio 1':pr,'precio 2':pr,'precio 3':pr,'precio 4':pr,'precio 5':pr,'precio 7':pr,
+    'descuento grupo p ':35,'descripcion adiciona':foot?'ZAPATILLAS':app?'ROPA':'ACCESORIOS','excel':'T','idshopi':1,'GENERO':g,_f:fl};
+}
+function runAnalysis(P,I,T,o){
+  const B=new Set(),F=new Set();
+  for(const r of I){const b=dg(r['COD BARRAS']);if(b)B.add(b);for(const k of ['REFERENCIA','SKU_PADRE']){const a=N(r[k]);if(a)F.add(a);}}
+  const seen=new Set(),rows=[];let existing=0;
+  for(const p of P){
+    const b=dg(p['CODIGO BARRAS']);if(!b||seen.has(b))continue;seen.add(b);
+    if(B.has(b)){existing++;continue;}
+    const padre=N(p['REFERENCIA PADRE']||p['REFERENCIA PROVEEDOR']);
+    rows.push(mk(p,b,F.has(padre)?'TALLA NUEVA':'SKU NUEVO',T,o));
+  }
+  return {rows,stats:{filas:P.length,unicos:seen.size,existing}};
+}
+const isBad=(r,k)=>r[k]===''||r[k]==null||(r._f&&r._f[k]);
+const pend=r=>NEED.filter(k=>r[k]===''||r[k]==null);
+const rev=r=>NEED.filter(k=>isBad(r,k));
+</script>
+
+<script>
+const S={prov:null,icg:null,tree:null,rows:[],stats:null};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+async function readFile(file,kind){
+  const wb=XLSX.read(await file.arrayBuffer(),{type:'array'});
+  if(kind==='tree'){
+    const n=wb.SheetNames.find(x=>/lookup/i.test(x));
+    if(!n)throw new Error('No encontré la hoja _lookup en el árbol de códigos.');
+    return XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:null});
+  }
+  const rows=nk(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''}));
+  const need=kind==='prov'?['CODIGO BARRAS','REFERENCIA PADRE','TALLA','COLOR','GRUPO','GENERO','LINEA','MODELO','MSRP','CATEGORIA']:['COD BARRAS','REFERENCIA'];
+  const has=rows[0]||{},miss=need.filter(k=>!(k in has));
+  if(miss.length)throw new Error('Faltan columnas: '+miss.join(', '));
+  return rows;
+}
+function slot(kind,key){
+  const el=$('s_'+kind),inp=el.querySelector('input'),st=el.querySelector('.st');
+  const take=async f=>{
+    if(!f)return;st.textContent='Leyendo '+f.name+'…';el.classList.remove('ok');$('err').textContent='';
+    try{
+      S[key]=await readFile(f,kind);
+      if(kind==='tree'){S.T=buildTree(S.tree);const sel=$('marca'),cur=sel.value;
+        sel.innerHTML=Object.keys(S.T.marca).map(m=>'<option>'+esc(m)+'</option>').join('');sel.value=N(cur)in S.T.marca?N(cur):'NEW BALANCE';}
+      st.textContent='✓ '+f.name+(kind==='tree'?'':' ('+S[key].length.toLocaleString('es')+' filas)');el.classList.add('ok');
+    }catch(e){S[key]=null;st.textContent='Sin cargar';$('err').textContent=f.name+': '+e.message;}
+    $('go').disabled=!(S.prov&&S.icg&&S.tree);
+  };
+  inp.onchange=()=>take(inp.files[0]);
+  el.ondragover=e=>{e.preventDefault();el.classList.add('over');};
+  el.ondragleave=()=>el.classList.remove('over');
+  el.ondrop=e=>{e.preventDefault();el.classList.remove('over');take(e.dataTransfer.files[0]);};
+}
+slot('prov','prov');slot('icg','icg');slot('tree','tree');
+
+$('go').onclick=()=>{
+  const r=runAnalysis(S.prov,S.icg,S.T,{marca:$('marca').value,temporada:$('temp').value.trim()});
+  S.rows=r.rows;S.stats=r.stats;summary();$('out').hidden=false;$('tbl').hidden=false;render();
+  $('out').scrollIntoView({behavior:'smooth'});
+};
+
+function summary(){
+  const R=S.rows,st=S.stats,sku=R.filter(r=>r['CREACION SI/NO']==='SKU NUEVO'),tn=R.filter(r=>r['CREACION SI/NO']==='TALLA NUEVA');
+  const refs=a=>new Set(a.map(r=>r.Referencia)).size,np=R.filter(r=>pend(r).length).length,nr=R.filter(r=>rev(r).length).length;
+  const cell=(n,l)=>'<div><strong>'+n.toLocaleString('es')+'</strong><span>'+l+'</span></div>';
+  $('strip').innerHTML=cell(st.unicos,'códigos únicos en el despacho')+cell(st.existing,'ya existen en ICG')+cell(sku.length,'SKU nuevos a crear')+cell(tn.length,'tallas nuevas')+cell(np,'artículos con campos vacíos');
+  const by={};sku.forEach(r=>{const k=r['descripcion adiciona'];(by[k]=by[k]||[new Set(),0]);by[k][0].add(r.Referencia);by[k][1]++;});
+  const li=Object.entries(by).map(([k,v])=>'<li>'+esc(k)+': '+v[0].size+' referencias, '+v[1]+' códigos</li>').join('');
+  $('todo').innerHTML=R.length?'<b>Qué hay que hacer</b><ul><li>Crear '+refs(sku)+' referencias nuevas ('+sku.length+' códigos de barras).</li>'+li+
+    (tn.length?'<li>Agregar '+tn.length+' tallas nuevas a '+refs(tn)+' referencias que ya existen en ICG (van en una hoja aparte del Excel).</li>':'')+
+    (np?'<li>Completar los campos vacíos de '+np+' artículos (celdas amarillas).</li>':'')+(nr?'<li>Confirmar las celdas amarillas con valor asumido (familia de ropa y accesorios, líneas de modelo parecidas), en '+nr+' artículos.</li>':'')+'</ul>':'<b>No hay nada que crear:</b> todos los códigos del despacho ya existen en ICG.';
+}
+
+function render(){
+  const t=$('ftipo').value,q=N($('fq').value),pe=$('fpend').checked,T=S.T;
+  const L=S.rows.map((r,i)=>[r,i]).filter(([r])=>(!t||r['CREACION SI/NO']===t)&&(!q||N(r.Referencia).includes(q)||String(r['Codigo Barras']).includes(q))&&(!pe||rev(r).length));
+  const show=L.slice(0,400);
+  $('tb').innerHTML=show.map(([r,i])=>{
+    const c=k=>isBad(r,k)?' class="bad"':'';
+    const inp=k=>'<td'+c(k)+'><input data-i="'+i+'" data-k="'+k+'" value="'+esc(r[k])+'"></td>';
+    const sel=(k,pre)=>{const o=keys(T[k==='Familia'?'fam':'sub'],pre);
+      return '<td'+c(k)+'><select data-i="'+i+'" data-k="'+k+'"><option value=""></option>'+o.map(([n,v])=>'<option value="'+v+'"'+(v===r[k]?' selected':'')+'>'+esc(v+' · '+n)+'</option>').join('')+(o.length?'':'<option value="0"'+(r[k]===0?' selected':'')+'>0</option>')+'</select></td>';};
+    const ln=keys(T.lin,r.marca+'|').find(x=>x[1]===r.linea);
+    return '<tr><td><span class="tag'+(r['CREACION SI/NO']==='TALLA NUEVA'?' t':'')+'">'+esc(r['CREACION SI/NO'])+'</span></td><td class="code">'+r['Codigo Barras']+'</td><td>'+esc(r.Referencia)+'</td>'+
+      inp('Talla')+inp('COLOR')+inp('Descripcion')+'<td'+c('Departamento')+'>'+esc(r.Departamento)+'</td><td'+c('Seccion')+'>'+esc(r.Seccion)+'</td>'+
+      sel('Familia',r.Departamento+'|'+r.Seccion+'|')+sel('subfamilia',r.Departamento+'|'+r.Seccion+'|'+r.Familia+'|')+
+      '<td'+c('linea')+'><input class="n" type="number" data-i="'+i+'" data-k="linea" value="'+esc(r.linea)+'" title="'+esc(ln?ln[0]:'')+'"></td><td'+c('marca')+'>'+esc(r.marca)+'</td><td'+c('precio 1')+'>'+esc(r['precio 1'])+'</td><td>'+esc(r.GENERO)+'</td></tr>';
+  }).join('');
+  $('more').textContent=L.length>400?'Mostrando 400 de '+L.length+'. Usa los filtros para ver el resto; el Excel incluye todos.':L.length+' filas.';
+}
+$('tb').onchange=e=>{
+  const el=e.target,r=S.rows[el.dataset.i],k=el.dataset.k;if(!r)return;
+  let v=el.value;if(['Familia','subfamilia','linea'].includes(k))v=v===''?'':Number(v);
+  r[k]=v;if(r._f)delete r._f[k];if(k==='Descripcion')r['descripcion web']=v;
+  if(k==='Familia'){r.subfamilia='';}
+  summary();render();
+};
+['ftipo','fq','fpend'].forEach(id=>$(id).addEventListener(id==='fq'?'input':'change',render));
+
+$('dl').onclick=()=>{
+  const sheet=rows=>{const ws=XLSX.utils.aoa_to_sheet([HEAD].concat(rows.map(r=>HEAD.map(h=>h==='descripcion web'?r.Descripcion:r[h]))));ws['!cols']=HEAD.map(h=>({wch:Math.max(10,h.length+2)}));return ws;};
+  const wb=XLSX.utils.book_new(),R=S.rows,sku=R.filter(r=>r['CREACION SI/NO']==='SKU NUEVO'),tn=R.filter(r=>r['CREACION SI/NO']==='TALLA NUEVA');
+  XLSX.utils.book_append_sheet(wb,sheet(sku),'TABLA CREACION');
+  if(tn.length)XLSX.utils.book_append_sheet(wb,sheet(tn),'TALLAS NUEVAS');
+  const st=S.stats;
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Resumen'],['Códigos únicos en el despacho',st.unicos],['Ya existen en ICG',st.existing],['SKU nuevos',sku.length],['Referencias nuevas',new Set(sku.map(r=>r.Referencia)).size],['Tallas nuevas',tn.length],['Artículos con pendientes',R.filter(r=>pend(r).length).length]]),'RESUMEN');
+  XLSX.writeFile(wb,'PLANTILLA_DE_CREACION_'+new Date().toISOString().slice(0,10)+'.xlsx');
+};
+</script>
+</body>
+</html>
