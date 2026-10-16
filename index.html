@@ -30,7 +30,7 @@ button:disabled{opacity:.5}
 // La APP y su data están cifradas (AES-256-CBC + HMAC-SHA256, llave derivada con PBKDF2-SHA256).
 // Se descifran aquí, en el navegador; la clave no sale de este equipo.
 (()=>{
-  const CFG={salt:'Lu1pgqvGe8//+gXjw95Ahg==',iter:310000};
+  const CFG={salt:'ccTBvCa4RNupzGcWZTT8/A==',iter:310000};
   const b64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
   const get=async u=>{const r=await fetch(u,{cache:'no-store'});if(!r.ok)throw new Error('no se pudo descargar '+u);return r.arrayBuffer();};
   async function decryptor(bits){
