@@ -55,11 +55,11 @@ td input{padding:3px 6px;font-size:13px;width:80px}
 [hidden]{display:none!important}
 #doc{display:none}
 @media print{
-  @page{size:letter;margin:18mm}
+  @page{size:letter;margin:0}   /* sin margen el navegador no imprime el link ni el título */
   body{background:#fff;color:#000;font:12pt/1.45 "Times New Roman",serif}
   main{display:none}
   #doc{display:block}
-  .page{page-break-after:always}
+  .page{page-break-after:always;padding:18mm 18mm 14mm}
   .page:last-child{page-break-after:auto}
   .page h2{text-align:center;font-size:15pt;margin:0 0 16px}
   .page .brand{text-align:center;font:italic 700 22pt Arial,sans-serif;letter-spacing:.04em;margin-bottom:4px}
@@ -139,7 +139,7 @@ td input{padding:3px 6px;font-size:13px;width:80px}
   <h2 style="margin-top:22px">2. Pistolear las piezas</h2>
   <input class="scan" id="u_scan" placeholder="Pistolee cada pieza (una lectura = 1 unidad)" autocomplete="off">
   <div class="msg" id="u_msg"></div>
-  <div class="tw" style="margin-top:8px"><table><thead><tr><th>Código</th><th>Referencia</th><th>Descripción</th><th>Color</th><th>Talla</th><th class="r">Cant.</th><th></th></tr></thead><tbody id="u_lines"></tbody></table></div>
+  <div class="tw" style="margin-top:8px"><table><thead><tr><th>Código</th><th>Referencia</th><th>Descripción</th><th>Color</th><th>Talla</th><th class="r">Cant.</th><th class="r">Coste</th><th class="r">Total</th><th></th></tr></thead><tbody id="u_lines"></tbody></table></div>
   <div class="strip" id="u_calc"></div>
   <div class="warn" id="u_warn"></div>
   <div class="bar"><span class="sp"></span><button class="sec" id="u_reset">Limpiar</button><button id="u_emit" disabled>Emitir entrega</button></div>
@@ -307,10 +307,12 @@ $('c_emit').onclick=()=>{
 // ---------- UNIFORME ----------
 const U={lines:[]};
 function uniformeRender(){
-  const warn=[];let un=0;
-  $('u_lines').innerHTML=U.lines.map((l,i)=>{un+=l.cant;
-    return '<tr><td class="code">'+esc(l.a.cb)+'</td><td class="code">'+esc(l.a.ref)+'</td><td>'+esc(l.a.desc)+'</td><td>'+esc(l.a.color)+'</td><td><b>'+esc(l.a.talla)+'</b></td><td class="r"><input type="number" min="1" step="1" value="'+l.cant+'" data-i="'+i+'"></td><td><button class="x" data-del="'+i+'" title="Quitar">✕</button></td></tr>';}).join('');
-  $('u_calc').innerHTML=U.lines.length?'<div><strong>'+U.lines.length+'</strong><span>Artículos</span></div><div class="key"><strong>'+un+'</strong><span>Unidades</span></div>':'';
+  const warn=[];let un=0,tot=0;
+  $('u_lines').innerHTML=U.lines.map((l,i)=>{const c=l.a.coste;un+=l.cant;tot+=(c||0)*l.cant;
+    return '<tr><td class="code">'+esc(l.a.cb)+'</td><td class="code">'+esc(l.a.ref)+'</td><td>'+esc(l.a.desc)+'</td><td>'+esc(l.a.color)+'</td><td><b>'+esc(l.a.talla)+'</b></td><td class="r"><input type="number" min="1" step="1" value="'+l.cant+'" data-i="'+i+'"></td><td class="r">'+(c!=null?money(c):'<span class="tag">sin coste</span>')+'</td><td class="r">'+(c!=null?money(c*l.cant):'—')+'</td><td><button class="x" data-del="'+i+'" title="Quitar">✕</button></td></tr>';}).join('');
+  $('u_calc').innerHTML=U.lines.length?'<div><strong>'+U.lines.length+'</strong><span>Artículos</span></div><div><strong>'+un+'</strong><span>Unidades</span></div><div class="key"><strong>'+money(tot)+'</strong><span>Total a coste</span></div>':'';
+  const sc=U.lines.filter(l=>l.a.coste==null).length;
+  if(sc)warn.push(sc+' artículo(s) sin coste: no tienen stock en la DATA ICG para calcularlo. Compras lo completa en el albarán.');
   if(U.lines.length&&!$('u_nombre').value.trim())warn.push('Falta el nombre del colaborador.');
   if(U.lines.length&&!cedOk($('u_cedula').value))warn.push('Revisa la cédula: debe ser como 8-888-2152.');
   if(U.lines.length&&!$('u_tienda').value)warn.push('Elige la tienda del colaborador.');
@@ -388,7 +390,7 @@ function imprimir(rec){
   }else{
     const un=rec.lineas.reduce((s,l)=>s+l.cant,0);
     h+='<div class="page"><div class="brand">SPORT FACTORY</div><h2>ACTA DE ENTREGA DE UNIFORME</h2><p class="meta">Nº: '+esc(rec.num)+'<br>FECHA: '+hoy+'<br>TIENDA DEL COLABORADOR: '+tienda+'<br>SALE DEL ALMACÉN: '+esc((rec.almacen||'')+' '+(rec.almacenNombre||''))+'<br>COLABORADOR: '+esc(c.nombre)+' · CÉDULA: '+esc(c.cedula)+(c.cargo?' · CARGO: '+esc(c.cargo):'')+'</p>'+
-      '<table><tr><th>Código</th><th>Referencia</th><th>Descripción</th><th>Color</th><th>Talla</th><th>Cant.</th></tr>'+rec.lineas.map(l=>'<tr><td>'+esc(l.cb)+'</td><td>'+esc(l.ref)+'</td><td>'+esc(l.desc)+'</td><td>'+esc(l.color)+'</td><td>'+esc(l.talla)+'</td><td>'+l.cant+'</td></tr>').join('')+'<tr><td colspan="5"><b>Total unidades</b></td><td><b>'+un+'</b></td></tr></table>'+
+      '<table><tr><th>Código</th><th>Referencia</th><th>Descripción</th><th>Color</th><th>Talla</th><th>Cant.</th><th>Coste</th><th>Total</th></tr>'+rec.lineas.map(l=>'<tr><td>'+esc(l.cb)+'</td><td>'+esc(l.ref)+'</td><td>'+esc(l.desc)+'</td><td>'+esc(l.color)+'</td><td>'+esc(l.talla)+'</td><td>'+l.cant+'</td><td>'+(l.unit!=null?money(l.unit):'—')+'</td><td>'+(l.total!=null?money(l.total):'—')+'</td></tr>').join('')+'<tr><td colspan="5"><b>Total</b></td><td><b>'+un+'</b></td><td></td><td><b>'+money(rec.lineas.reduce((s,l)=>s+(l.total||0),0))+'</b></td></tr></table>'+
       '<p style="margin-top:16px">Recibí conforme las piezas de uniforme detalladas arriba.</p>'+
       '<div class="firmas"><div>Recibido por (colaborador)</div><div>Entregado por'+(rec.entregadoPor?': '+esc(rec.entregadoPor):'')+'</div></div></div>';
   }
