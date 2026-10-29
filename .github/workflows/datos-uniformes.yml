@@ -1,0 +1,36 @@
+name: Datos de la APP de uniformes
+# Cuando se publica data nueva (publicar.ps1), arma uniformes/datos.json para que la APP cargue rápido.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'lista.json'
+      - 'DATA ICG/**'
+      - 'PRECIOS RETAL ICG/**'
+      - 'uniformes/datos.js'
+      - 'tools/datos-uniformes.js'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: datos-uniformes
+  cancel-in-progress: true
+jobs:
+  armar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-save --no-package-lock xlsx@0.18.5
+      - run: node --max-old-space-size=4096 tools/datos-uniformes.js
+      - name: Subir datos.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add uniformes/datos.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Actualiza datos de la APP de uniformes"
+          git pull --rebase origin main
+          git push origin HEAD:main
