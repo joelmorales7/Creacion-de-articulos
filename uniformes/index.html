@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>APP Uniformes y pagarés</title>
+<style>
+:root{--bg:#f2f4f6;--pn:#fff;--ink:#17212b;--mut:#5d6b78;--ln:#d9dfe5;--ac:#0b6b8a;--acs:#e3f1f6;--wr:#fff3d6;--wrt:#8a5a00;--ok:#2b7a4b;--bad:#b3261e}
+@media (prefers-color-scheme:dark){:root{--bg:#10161c;--pn:#18212a;--ink:#e8edf2;--mut:#9aa8b5;--ln:#2b3844;--ac:#5cb8d6;--acs:#173441;--wr:#3b2f12;--wrt:#f0c36a;--ok:#6fcf97;--bad:#ff8a80}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 ui-sans-serif,"Segoe UI",system-ui,sans-serif}
+main{max-width:1180px;margin:0 auto;padding:28px 16px 60px}
+h1{font-size:26px;margin:0 0 4px;letter-spacing:-.01em}
+h2{font-size:17px;margin:0 0 12px}
+h3{font-size:15px;margin:18px 0 8px}
+p.sub{margin:0 0 20px;color:var(--mut);max-width:75ch}
+section{background:var(--pn);border:1px solid var(--ln);border-radius:6px;padding:20px;margin-bottom:20px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.tabs button{background:var(--pn);color:var(--ink);border:1px solid var(--ln)}
+.tabs button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+label.f{display:flex;flex-direction:column;font-size:13px;color:var(--mut);gap:4px}
+label.c{display:flex;gap:8px;align-items:center;font-size:14px}
+input,select{font:inherit;color:var(--ink);background:var(--pn);border:1px solid var(--ln);border-radius:4px;padding:7px 9px}
+input.bad{border-color:var(--bad)}
+input.scan{font-size:20px;padding:10px 12px;font-family:ui-monospace,Consolas,monospace;width:100%}
+button{font:inherit;font-weight:600;border:0;border-radius:4px;padding:9px 18px;background:var(--ac);color:#fff;cursor:pointer}
+button.sec{background:transparent;color:var(--ac);border:1px solid var(--ac)}
+button.x{padding:2px 8px;background:transparent;color:var(--bad);border:1px solid var(--ln)}
+button:disabled{opacity:.4;cursor:not-allowed}
+:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+table{border-collapse:collapse;width:100%}
+th,td{padding:6px 8px;border-bottom:1px solid var(--ln);text-align:left;font-size:13px;vertical-align:middle}
+th{color:var(--mut);font-weight:600}
+td.r,th.r{text-align:right}
+td input{padding:3px 6px;font-size:13px;width:80px}
+.tw{overflow-x:auto;border:1px solid var(--ln);border-radius:6px}
+.code{font-family:ui-monospace,Consolas,monospace}
+.bar{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:16px}
+.bar .sp{flex:1}
+.msg{margin-top:8px;font-size:14px;min-height:1.5em}
+.msg.bad{color:var(--bad)}.msg.ok{color:var(--ok)}
+.warn{background:var(--wr);color:var(--wrt);padding:10px 14px;border-radius:6px;font-size:14px;margin-top:12px}
+.warn:empty{display:none}
+.note{color:var(--mut);font-size:13px}
+.strip{display:flex;flex-wrap:wrap;border:1px solid var(--ln);border-radius:6px;margin-top:14px}
+.strip div{flex:1 1 150px;padding:10px 14px;border-right:1px solid var(--ln)}
+.strip div:last-child{border-right:0}
+.strip strong{display:block;font-size:22px;line-height:1.2}
+.strip span{font-size:12px;color:var(--mut)}
+.strip .key{background:var(--acs)}
+.st{font-size:13px;color:var(--mut)}
+.st.ok{color:var(--ok)}
+.drop{border:1.5px dashed var(--ln);border-radius:6px;padding:12px;display:block;cursor:pointer}
+.drop:hover{border-color:var(--ac);background:var(--acs)}
+.drop input{display:none}
+.tag{font-size:12px;padding:1px 7px;border-radius:10px;background:var(--acs);color:var(--ac);white-space:nowrap}
+[hidden]{display:none!important}
+#doc{display:none}
+@media print{
+  @page{size:letter;margin:18mm}
+  body{background:#fff;color:#000;font:12pt/1.45 "Times New Roman",serif}
+  main{display:none}
+  #doc{display:block}
+  .page{page-break-after:always}
+  .page:last-child{page-break-after:auto}
+  .page h2{text-align:center;font-size:15pt;margin:0 0 16px}
+  .page .brand{text-align:center;font:italic 700 22pt Arial,sans-serif;letter-spacing:.04em;margin-bottom:4px}
+  .page p{margin:0 0 12px;text-align:justify}
+  .page u{text-decoration:underline;font-weight:700}
+  .page table{width:100%;border-collapse:collapse;margin:10px 0}
+  .page th,.page td{border:1px solid #000;padding:4px 6px;font:10pt Arial,sans-serif;color:#000}
+  .page .firmas{display:flex;justify-content:space-between;gap:40px;margin-top:70px}
+  .page .firmas div{flex:1;border-top:1px solid #000;text-align:center;padding-top:4px;font-size:11pt}
+  .page .lin{margin:26px 0 0}
+  .page .meta{font:10pt Arial,sans-serif}
+}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+<main>
+<h1>Uniformes y pagarés</h1>
+<p class="sub">Calzado para uniforme con pagaré (tiendas) y entrega de uniformes a costo (oficina). La referencia, la talla y el precio salen del código de barras pistoleado. Al terminar se imprimen los documentos y se baja el Excel para que Compras haga el albarán.</p>
+
+<section id="datos">
+  <h2>Data</h2>
+  <div class="grid">
+    <div><b>Artículos (DATA ICG)</b><div class="st" id="st_icg">Buscando la carpeta DATA ICG…</div></div>
+    <div><b>Listas de precios</b><div class="st" id="st_pre">Buscando la carpeta LISTAS DE PRECIOS…</div></div>
+  </div>
+  <div class="bar">
+    <label class="drop" id="dropIcg"><input type="file" accept=".xls,.xlsx" multiple><b>Cargar DATA ICG a mano</b><br><small class="note">Si no se cargó sola</small></label>
+    <label class="drop" id="dropPre"><input type="file" accept=".xls,.xlsx,.csv" multiple><b>Cargar lista de precios</b><br><small class="note">Excel con código de barras o referencia y precio</small></label>
+  </div>
+</section>
+
+<div class="tabs" role="tablist">
+  <button data-tab="calzado" class="on">Calzado con pagaré</button>
+  <button data-tab="uniforme">Uniforme a costo</button>
+  <button data-tab="historial">Historial y reportes</button>
+  <button data-tab="ajustes">Ajustes</button>
+</div>
+
+<!-- CALZADO -->
+<section data-pane="calzado">
+  <h2>1. Colaborador</h2>
+  <div class="grid">
+    <label class="f">Nombre completo<input id="c_nombre" autocomplete="off"></label>
+    <label class="f">Cédula<input id="c_cedula" placeholder="8-888-2152" autocomplete="off"></label>
+    <label class="f">Cargo<input id="c_cargo" autocomplete="off"></label>
+    <label class="f">Tienda<select id="c_tienda"></select></label>
+  </div>
+  <label class="f" style="margin-top:12px">Domicilio<input id="c_domicilio" autocomplete="off"></label>
+
+  <h2 style="margin-top:22px">2. Pistolear el calzado</h2>
+  <input class="scan" id="c_scan" placeholder="Pistolee el código de barras de la caja" autocomplete="off">
+  <div class="msg" id="c_msg"></div>
+  <div id="c_art" hidden>
+    <div class="tw"><table><thead><tr><th>Código</th><th>Referencia</th><th>Descripción</th><th>Color</th><th>Talla</th><th class="r">Precio venta</th></tr></thead><tbody id="c_artb"></tbody></table></div>
+    <div class="grid" style="margin-top:12px">
+      <label class="f">Precio de venta sin ITBMS (B/.)<input id="c_precio" type="number" step="0.01" min="0"></label>
+      <label class="f">Descuento vigente del artículo (%)<input id="c_desc" type="number" step="1" min="0" max="100" value="0"></label>
+    </div>
+    <div class="note" id="c_pnote"></div>
+  </div>
+
+  <h2 style="margin-top:22px">3. Pagaré</h2>
+  <div class="grid">
+    <label class="f">Número de cuotas<input id="c_ncuotas" type="number" min="1" step="1" value="6"></label>
+    <label class="f">Valor de cada cuota (B/.)<input id="c_vcuota" type="number" min="0.01" step="0.01"></label>
+    <label class="f">Primer descuento<input id="c_inicio" type="date"></label>
+    <label class="f">Frecuencia<select id="c_frec"><option value="Q">Quincenal (15 y 30)</option><option value="M">Mensual</option></select></label>
+  </div>
+  <div class="strip" id="c_calc"></div>
+  <div class="tw" style="margin-top:12px"><table><thead><tr><th>Cuota</th><th>Fecha</th><th class="r">Monto</th></tr></thead><tbody id="c_cuotas"></tbody></table></div>
+  <div class="warn" id="c_warn"></div>
+  <div class="bar"><span class="sp"></span><button class="sec" id="c_reset">Limpiar</button><button id="c_emit" disabled>Emitir pagaré</button></div>
+</section>
+
+<!-- UNIFORME -->
+<section data-pane="uniforme" hidden>
+  <h2>1. Colaborador</h2>
+  <div class="grid">
+    <label class="f">Nombre completo<input id="u_nombre" autocomplete="off"></label>
+    <label class="f">Cédula<input id="u_cedula" autocomplete="off"></label>
+    <label class="f">Cargo<input id="u_cargo" autocomplete="off"></label>
+    <label class="f">Tienda / área<select id="u_tienda"></select></label>
+    <label class="f">Entregado por<input id="u_por" autocomplete="off"></label>
+  </div>
+  <h2 style="margin-top:22px">2. Pistolear las piezas</h2>
+  <input class="scan" id="u_scan" placeholder="Pistolee cada pieza (una lectura = 1 unidad)" autocomplete="off">
+  <div class="msg" id="u_msg"></div>
+  <div class="tw" style="margin-top:8px"><table><thead><tr><th>Código</th><th>Referencia</th><th>Descripción</th><th>Color</th><th>Talla</th><th class="r">Cant.</th><th class="r">Últ. coste</th><th class="r">Total</th><th></th></tr></thead><tbody id="u_lines"></tbody></table></div>
+  <div class="strip" id="u_calc"></div>
+  <div class="warn" id="u_warn"></div>
+  <div class="bar"><span class="sp"></span><button class="sec" id="u_reset">Limpiar</button><button id="u_emit" disabled>Emitir entrega</button></div>
+</section>
+
+<!-- HISTORIAL -->
+<section data-pane="historial" hidden>
+  <h2>Documentos emitidos</h2>
+  <p class="note">Lo emitido en esta computadora queda guardado aquí. Compras junta el de todas las tiendas cargando los Excel que recibe: cada uno trae su registro. <b id="h_where"></b></p>
+  <div class="bar" style="margin-top:0">
+    <label class="f">Desde<input type="date" id="h_desde"></label>
+    <label class="f">Hasta<input type="date" id="h_hasta"></label>
+    <label class="f">Tipo<select id="h_tipo"><option value="">Todos</option><option>CALZADO</option><option>UNIFORME</option></select></label>
+    <label class="f">Agrupar<select id="h_grp"><option value="M">Por mes</option><option value="S">Por semana</option></select></label>
+    <span class="sp"></span>
+    <label class="drop" id="dropReg"><input type="file" accept=".xlsx" multiple><b>Cargar Excel recibidos</b></label>
+    <button id="h_export">Bajar reporte Excel</button>
+  </div>
+  <h3>Resumen</h3>
+  <div class="tw"><table><thead><tr><th>Período</th><th>Tipo</th><th class="r">Documentos</th><th class="r">Unidades</th><th class="r">Valor</th><th class="r">Pagarés</th></tr></thead><tbody id="h_sum"></tbody></table></div>
+  <h3>Detalle</h3>
+  <div class="tw"><table><thead><tr><th>Nº</th><th>Fecha</th><th>Tipo</th><th>Tienda</th><th>Colaborador</th><th>Cédula</th><th class="r">Unid.</th><th class="r">Valor</th><th class="r">Pagaré</th><th></th></tr></thead><tbody id="h_list"></tbody></table></div>
+</section>
+
+<!-- AJUSTES -->
+<section data-pane="ajustes" hidden>
+  <h2>Ajustes</h2>
+  <div class="grid">
+    <label class="f">Aporte de la empresa por par (B/.)<input id="a_aporte" type="number" step="0.01" min="0"></label>
+    <label class="f">ITBMS (%)<input id="a_itbms" type="number" step="0.01" min="0"></label>
+    <label class="f">Prefijo del consecutivo de esta computadora<input id="a_pref" maxlength="8" placeholder="ALB"></label>
+    <label class="f">Próximo número<input id="a_next" type="number" min="1" step="1"></label>
+  </div>
+  <label class="c" style="margin-top:12px"><input type="checkbox" id="a_coniva"> Los precios de la lista ya incluyen ITBMS</label>
+  <p class="note">El pagaré sale como: precio de venta × (1 − descuento vigente) + ITBMS − aporte de la empresa. El uniforme se entrega al último coste, sin pagaré.</p>
+</section>
+</main>
+
+<div id="doc"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const N=s=>String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'').trim().toUpperCase();
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const r2=x=>Math.round(parseFloat(((+x||0)*100).toFixed(6)))/100;
+const money=x=>'B/.'+(+x||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const dg=v=>String(v==null?'':v).replace(/\.0+$/,'').replace(/\D/g,'');
+const CBCOL=/^COD(IGO)?\.? ?(DE )?BARRAS( \d)?$/;
+const COSTCOL=/^(ULT(IMO)?\.? ?COSTE?|ULTIMO COSTO|ULT\. COSTO|COSTE ULTIMO|COSTO ULTIMO)$/;
+const PRICECOL=/^(PRECIO( DE)? VENTA|PVP|P\.V\.P\.?|PRECIO|PRECIO TIENDA|PRECIO NETO|TARIFA|PRECIO VENTA SIN ITBMS|PVP SIN ITBMS)$/;
+const DESCCOL=/^(DESC(UENTO)?\.?( ?%)?|% ?DESC(UENTO)?\.?|DTO\.?( ?%)?)$/;
+const MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+// ---------- almacenamiento local (try/catch: puede no haber) ----------
+const store={get(k,d){try{const v=localStorage.getItem('unif.'+k);return v==null?d:JSON.parse(v);}catch(e){return d;}},set(k,v){try{localStorage.setItem('unif.'+k,JSON.stringify(v));}catch(e){}}};
+const CFG=Object.assign({aporte:50,itbms:7,pref:'',next:1,coniva:false},store.get('cfg',{}));
+const saveCfg=()=>store.set('cfg',CFG);
+
+// ---------- data ----------
+const D={byCB:new Map(),byRef:new Map(),tiendas:new Set(),hasCost:false,precios:{cb:new Map(),reft:new Map(),ref:new Map(),n:0}};
+function headerRow(A){let h=A.findIndex((r,i)=>i<15&&r.some(c=>CBCOL.test(N(c))||N(c)==='REFERENCIA'));return h<0?0:h;}
+function indexIcg(wb){
+  const ws=wb.Sheets[wb.SheetNames[0]],A=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true});
+  const h=headerRow(A),H=(A[h]||[]).map(N),up=A[h-1]||[];
+  up.forEach(c=>{const m=String(c).match(/Control de Stocks:\s*(.+)/i);if(m)D.tiendas.add(m[1].trim());});
+  const ix=k=>H.indexOf(k),iR=ix('REFERENCIA'),iT=ix('TALLA'),iD=ix('DESCRIPCION'),iC=ix('COLOR'),iDp=ix('DEPARTAMENTO'),iM=ix('MARCA'),iS=ix('SECCION');
+  const iCost=H.findIndex(k=>COSTCOL.test(k)),cbs=H.map((k,i)=>CBCOL.test(k)?i:-1).filter(i=>i>=0);
+  if(iR<0||!cbs.length)throw new Error('no tiene columnas Referencia y Cód. Barras');
+  if(iCost>=0)D.hasCost=true;
+  let n=0;
+  for(let j=h+1;j<A.length;j++){const r=A[j];if(!r[iR])continue;
+    const a={ref:String(r[iR]).trim(),talla:iT>=0?String(r[iT]).trim():'',desc:iD>=0?String(r[iD]).trim():'',color:iC>=0?String(r[iC]).trim():'',depto:iDp>=0?N(r[iDp]):'',seccion:iS>=0?N(r[iS]):'',marca:iM>=0?String(r[iM]).trim():'',coste:iCost>=0?num(r[iCost]):null,cb:''};
+    for(const i of cbs){const b=dg(r[i]);if(b){if(!a.cb)a.cb=b;D.byCB.set(b,a);}}
+    D.byRef.set(N(a.ref)+'|'+N(a.talla),a);n++;}
+  return n;
+}
+function num(v){if(v===''||v==null)return null;const x=+String(v).replace(/[^0-9.,-]/g,'').replace(/,(?=\d{3}\b)/g,'').replace(',','.');return isFinite(x)?x:null;}
+function indexPrecios(wb){
+  let n=0;
+  for(const sn of wb.SheetNames){
+    const A=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:true});
+    const h=A.findIndex((r,i)=>i<20&&r.some(c=>PRICECOL.test(N(c))));if(h<0)continue;
+    const H=A[h].map(N),iP=H.findIndex(k=>PRICECOL.test(k)),iR=H.indexOf('REFERENCIA'),iT=H.indexOf('TALLA'),iDs=H.findIndex(k=>DESCCOL.test(k)),cbs=H.map((k,i)=>CBCOL.test(k)?i:-1).filter(i=>i>=0);
+    if(iR<0&&!cbs.length)continue;
+    for(let j=h+1;j<A.length;j++){const r=A[j],p=num(r[iP]);if(p==null||p<=0)continue;
+      const o={precio:p,desc:iDs>=0?(num(r[iDs])||0):0,origen:sn};if(o.desc>0&&o.desc<1)o.desc*=100;
+      for(const i of cbs){const b=dg(r[i]);if(b)D.precios.cb.set(b,o);}
+      if(iR>=0&&r[iR]){const k=N(r[iR]);if(iT>=0&&r[iT])D.precios.reft.set(k+'|'+N(r[iT]),o);if(!D.precios.ref.has(k))D.precios.ref.set(k,o);}
+      n++;}
+  }
+  D.precios.n+=n;return n;
+}
+function precioDe(a){const P=D.precios;return P.cb.get(a.cb)||P.reft.get(N(a.ref)+'|'+N(a.talla))||P.ref.get(N(a.ref))||null;}
+function buscar(code){
+  const b=dg(code);if(b&&D.byCB.has(b))return D.byCB.get(b);
+  if(b&&b.length<13){for(const [k,a] of D.byCB)if(k.endsWith(b)&&k.replace(/^0+/,'')===b.replace(/^0+/,''))return a;}
+  return null;
+}
+// carpeta: lista.json en GitHub, o el servidor del lanzador en local
+let PUB;
+async function getList(ep){
+  if(PUB===undefined){try{const r=await fetch('../lista.json',{cache:'no-store'});PUB=r.ok?await r.json():null;}catch(e){PUB=null;}}
+  if(PUB)return PUB.lists[ep]||null;
+  try{const r=await fetch('../'+ep);if(!r.ok)return null;return await r.json();}catch(e){return null;}
+}
+const fileBuf=async name=>{const r=await fetch('../'+name.split('/').map(encodeURIComponent).join('/'),{cache:'no-store'});if(!r.ok)throw new Error('no se pudo leer '+name);return r.arrayBuffer();};
+function statusIcg(extra){const el=$('st_icg');el.className='st'+(D.byCB.size?' ok':'');el.innerHTML=D.byCB.size?('✓ '+D.byRef.size.toLocaleString('es')+' artículos'+(D.hasCost?' · con último coste':' · <b>sin columna de último coste</b>')+(extra||'')):(extra||'Sin cargar');fillTiendas();refreshAll();}
+function statusPre(extra){const el=$('st_pre');el.className='st'+(D.precios.n?' ok':'');el.innerHTML=D.precios.n?('✓ '+D.precios.n.toLocaleString('es')+' precios'+(extra||'')):(extra||'Sin cargar. Mientras no haya lista, el precio de venta se escribe a mano.');refreshAll();}
+async function loadFolder(){
+  if(!/^https?:$/.test(location.protocol)){statusIcg('Abre la app con el lanzador o desde GitHub, o carga la DATA a mano.');statusPre();return;}
+  const list=await getList('icg-files');
+  if(list&&list.length){let i=0;const errs=[];
+    for(const f of list){$('st_icg').textContent='Leyendo '+(++i)+' de '+list.length+': '+f.name.split('/').pop()+'…';
+      try{indexIcg(XLSX.read(await fileBuf(f.name),{type:'array'}));}catch(e){errs.push(f.name.split('/').pop());}}
+    statusIcg(' de '+list.length+' archivo(s)'+(errs.length?'<br><span class="msg bad">No se pudo leer: '+esc(errs.join(', '))+'</span>':''));
+  }else statusIcg('No encontré la carpeta DATA ICG. Cárgala a mano.');
+  const pl=await getList('precio-files');
+  if(pl&&pl.length){for(const f of pl){try{indexPrecios(XLSX.read(await fileBuf(f.name),{type:'array'}));}catch(e){}}statusPre(' de '+pl.length+' lista(s)');}
+  else statusPre();
+}
+function drop(id,fn){const el=$(id),inp=el.querySelector('input');inp.onchange=async()=>{for(const f of inp.files){try{await fn(f);}catch(e){alert(f.name+': '+e.message);}}inp.value='';};}
+drop('dropIcg',async f=>{indexIcg(XLSX.read(await f.arrayBuffer(),{type:'array'}));statusIcg(' (cargada a mano)');});
+drop('dropPre',async f=>{const n=indexPrecios(XLSX.read(await f.arrayBuffer(),{type:'array'}));if(!n)throw new Error('no encontré columnas de precio y código de barras o referencia');statusPre();});
+
+function fillTiendas(){
+  const opts=['',...[...D.tiendas].sort(),'OFICINA'];
+  for(const id of ['c_tienda','u_tienda']){const s=$(id),v=s.value||store.get(id,'');s.innerHTML=opts.map(t=>'<option value="'+esc(t)+'">'+(t?esc(t):'— elegir —')+'</option>').join('');if(opts.includes(v))s.value=v;}
+}
+
+// ---------- utilidades de documento ----------
+const CED=/^(PE|E|N|[1-9]|1[0-3])(AV|PI)?-\d{1,4}-\d{1,6}$/;
+function cedOk(s){return CED.test(N(s).replace(/\s/g,''));}
+const cedCorta=s=>/-\d{1,2}$/.test(N(s).replace(/\s/g,''));
+function hoyISO(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function fLarga(iso){const [y,m,d]=iso.split('-').map(Number);return d+' de '+MESES[m-1]+' de '+y;}
+function fMay(iso){return fLarga(iso).toUpperCase();}
+function finMes(y,m){return new Date(y,m,0).getDate();}
+function fechasCuotas(ini,n,frec){
+  const out=[];let [y,m,d]=ini.split('-').map(Number);
+  for(let i=0;i<n;i++){out.push(y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0'));
+    if(frec==='M'){m++;if(m>12){m=1;y++;}d=Math.min(+ini.slice(8),finMes(y,m));}
+    else if(d<=15){d=Math.min(30,finMes(y,m));}else{m++;if(m>12){m=1;y++;}d=15;}}
+  return out;
+}
+function proximaQuincena(){const t=new Date();let y=t.getFullYear(),m=t.getMonth()+1,d=t.getDate();
+  if(d<15)d=15;else if(d<Math.min(30,finMes(y,m)))d=Math.min(30,finMes(y,m));else{m++;if(m>12){m=1;y++;}d=15;}
+  return y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');}
+function letras(n){
+  const U=['','UNO','DOS','TRES','CUATRO','CINCO','SEIS','SIETE','OCHO','NUEVE','DIEZ','ONCE','DOCE','TRECE','CATORCE','QUINCE','DIECISÉIS','DIECISIETE','DIECIOCHO','DIECINUEVE','VEINTE','VEINTIUNO','VEINTIDÓS','VEINTITRÉS','VEINTICUATRO','VEINTICINCO','VEINTISÉIS','VEINTISIETE','VEINTIOCHO','VEINTINUEVE'];
+  const D=['','','','TREINTA','CUARENTA','CINCUENTA','SESENTA','SETENTA','OCHENTA','NOVENTA'];
+  const C=['','CIENTO','DOSCIENTOS','TRESCIENTOS','CUATROCIENTOS','QUINIENTOS','SEISCIENTOS','SETECIENTOS','OCHOCIENTOS','NOVECIENTOS'];
+  const dec=x=>x<30?U[x]:D[Math.floor(x/10)]+(x%10?' Y '+U[x%10]:'');
+  const cen=x=>x===100?'CIEN':(C[Math.floor(x/100)]+(x%100?' '+dec(x%100):'')).trim();
+  const ent=x=>{if(x===0)return 'CERO';const mil=Math.floor(x/1000),r=x%1000;
+    return ((mil?(mil===1?'MIL':cen(mil).replace(/VEINTIUNO$/,'VEINTIÚN').replace(/UNO$/,'UN')+' MIL'):'')+(r?' '+cen(r):'')).trim();};
+  const e=Math.floor(r2(n)),c=Math.round((r2(n)-e)*100);
+  return ent(e)+' CON '+String(c).padStart(2,'0')+'/100';
+}
+function nextNum(){const y=new Date().getFullYear(),pre=(CFG.pref?N(CFG.pref)+'-':'')+y+'-';
+  // nunca repetir un número que ya está en el historial
+  const usado=getReg().filter(r=>r.num.startsWith(pre)).map(r=>+r.num.slice(pre.length)||0);CFG.next=Math.max(CFG.next,1+Math.max(0,...usado));
+  return pre+String(CFG.next).padStart(4,'0');}
+
+// ---------- CALZADO ----------
+const C={art:null};
+function cuotas(total){
+  const n=Math.max(1,parseInt($('c_ncuotas').value)||1);
+  let v=r2(+$('c_vcuota').value||0);if(!(v>0))v=r2(total/n);
+  const arr=[];let rest=r2(total);
+  for(let i=0;i<n&&rest>0.004;i++){const m=i===n-1?rest:Math.min(v,rest);arr.push(r2(m));rest=r2(rest-m);}
+  return {arr,rest};
+}
+function calzadoCalc(){
+  const a=C.art;if(!a)return null;
+  const precio=r2(+$('c_precio').value||0),desc=Math.min(100,Math.max(0,+$('c_desc').value||0)),iv=CFG.itbms/100;
+  const base=CFG.coniva?r2(precio/(1+iv)):precio;
+  const neto=r2(base*(1-desc/100)),itbms=r2(neto*iv),total=r2(neto+itbms),aporte=Math.min(total,r2(CFG.aporte)),pagare=r2(total-aporte);
+  return {precio:base,desc,neto,itbms,total,aporte,pagare};
+}
+function calzadoRender(){
+  const k=calzadoCalc(),warn=[];
+  if(!k){$('c_calc').innerHTML='';$('c_cuotas').innerHTML='';$('c_warn').textContent='';$('c_emit').disabled=true;return;}
+  const {arr,rest}=cuotas(k.pagare),f=fechasCuotas($('c_inicio').value||proximaQuincena(),arr.length,$('c_frec').value);
+  $('c_calc').innerHTML=[['Precio venta',k.precio],['Con descuento '+k.desc+'%',k.neto],['ITBMS '+CFG.itbms+'%',k.itbms],['Total',k.total],['Aporte empresa',-k.aporte]].map(([t,v])=>'<div><strong>'+money(v)+'</strong><span>'+t+'</span></div>').join('')+'<div class="key"><strong>'+money(k.pagare)+'</strong><span>Pagaré</span></div>';
+  $('c_cuotas').innerHTML=arr.map((m,i)=>'<tr><td>'+(i+1)+'</td><td>'+fLarga(f[i])+'</td><td class="r">'+money(m)+'</td></tr>').join('');
+  if(+$('c_ncuotas').value!==arr.length)warn.push('Con cuotas de '+money(+$('c_vcuota').value)+' el pagaré se paga en '+arr.length+' cuota(s).');
+  if(rest>0.004)warn.push('Con '+$('c_ncuotas').value+' cuotas de '+money(+$('c_vcuota').value)+' faltan '+money(rest)+'. Sube el valor de la cuota o el número de cuotas.');
+  if(!(k.precio>0))warn.push('Falta el precio de venta.');
+  if(!$('c_nombre').value.trim())warn.push('Falta el nombre del colaborador.');
+  if(!cedOk($('c_cedula').value))warn.push('Revisa la cédula: debe ser como 8-888-2152.');
+  if(cedOk($('c_cedula').value)&&cedCorta($('c_cedula').value))warn.push('Confirma la cédula: el último grupo tiene muy pocos dígitos.');
+  if(!$('c_domicilio').value.trim())warn.push('Falta el domicilio.');
+  if(!$('c_tienda').value)warn.push('Elige la tienda.');
+  $('c_warn').innerHTML=warn.map(esc).join('<br>');
+  $('c_emit').disabled=!!warn.filter(w=>!/se paga en|^Confirma/.test(w)).length||k.pagare<0;
+  $('c_cedula').classList.toggle('bad',!!$('c_cedula').value&&!cedOk($('c_cedula').value));
+}
+$('c_scan').addEventListener('keydown',e=>{
+  if(e.key!=='Enter')return;e.preventDefault();const code=e.target.value.trim();e.target.value='';if(!code)return;
+  const a=buscar(code),m=$('c_msg');
+  if(!D.byCB.size){m.className='msg bad';m.textContent='Todavía no está cargada la DATA ICG.';return;}
+  if(!a){m.className='msg bad';m.textContent='El código '+code+' no existe en la DATA ICG. No se puede emitir con un código desconocido.';return;}
+  if(C.art&&C.art!==a&&!confirm('Ya hay un par pistoleado ('+C.art.ref+' talla '+C.art.talla+'). ¿Lo cambias por '+a.ref+' talla '+a.talla+'?'))return;
+  C.art=a;const p=precioDe(a);
+  m.className='msg ok';m.textContent='✓ '+a.ref+' · talla '+a.talla;
+  if((a.depto||a.seccion)&&!/CALZADO|ZAPAT/.test(a.depto+' '+a.seccion)){m.className='msg bad';m.textContent='Atención: '+a.ref+' es de '+(a.seccion||a.depto)+', no de calzado.';}
+  $('c_artb').innerHTML='<tr><td class="code">'+esc(a.cb)+'</td><td class="code">'+esc(a.ref)+'</td><td>'+esc(a.desc)+'</td><td>'+esc(a.color)+'</td><td><b>'+esc(a.talla)+'</b></td><td class="r">'+(p?money(p.precio):'—')+'</td></tr>';
+  $('c_precio').value=p?p.precio.toFixed(2):'';$('c_precio').readOnly=!!p;$('c_desc').value=p&&p.desc?p.desc:0;
+  $('c_pnote').textContent=p?'Precio tomado de la lista de precios ('+p.origen+')'+(CFG.coniva?', que ya incluye ITBMS.':'.'):'No encontré este artículo en las listas de precios: escribe el precio de venta de la etiqueta.';
+  $('c_art').hidden=false;syncV();
+});
+['c_precio','c_desc','c_nombre','c_cedula','c_domicilio','c_tienda','c_inicio','c_frec','c_cargo'].forEach(id=>$(id).addEventListener('input',calzadoRender));
+function syncV(){const k=calzadoCalc();if(k){const n=Math.max(1,parseInt($('c_ncuotas').value)||1);$('c_vcuota').value=r2(Math.ceil(r2(k.pagare/n*100))/100).toFixed(2);}calzadoRender();}
+$('c_ncuotas').addEventListener('input',syncV);
+['c_precio','c_desc'].forEach(id=>$(id).addEventListener('input',syncV));
+$('c_vcuota').addEventListener('input',()=>{const k=calzadoCalc(),v=+$('c_vcuota').value;if(k&&v>0)$('c_ncuotas').value=Math.max(1,Math.ceil(r2(k.pagare/v)-1e-9));calzadoRender();});
+$('c_tienda').addEventListener('change',()=>store.set('c_tienda',$('c_tienda').value));
+function calzadoReset(){C.art=null;['c_nombre','c_cedula','c_cargo','c_domicilio','c_precio'].forEach(id=>$(id).value='');$('c_desc').value=0;$('c_ncuotas').value=6;$('c_vcuota').value='';$('c_inicio').value=proximaQuincena();$('c_art').hidden=true;$('c_msg').textContent='';calzadoRender();}
+$('c_reset').onclick=()=>{if(confirm('¿Borrar lo que llevas?'))calzadoReset();};
+$('c_ncuotas').addEventListener('change',calzadoRender);
+$('c_emit').onclick=()=>{
+  const a=C.art,k=calzadoCalc(),{arr}=cuotas(k.pagare),f=fechasCuotas($('c_inicio').value||proximaQuincena(),arr.length,$('c_frec').value);
+  const rec={num:nextNum(),tipo:'CALZADO',fecha:hoyISO(),tienda:$('c_tienda').value,
+    col:{nombre:$('c_nombre').value.trim().toUpperCase(),cedula:N($('c_cedula').value).replace(/\s/g,''),cargo:$('c_cargo').value.trim(),domicilio:$('c_domicilio').value.trim()},
+    lineas:[{cb:a.cb,ref:a.ref,desc:a.desc,color:a.color,talla:a.talla,cant:1,unit:k.precio,dto:k.desc,neto:k.neto,itbms:k.itbms,total:k.total}],
+    pagare:{monto:k.pagare,aporte:k.aporte,cuotas:arr.map((m,i)=>({n:i+1,fecha:f[i],monto:m})),frec:$('c_frec').value},creado:new Date().toISOString()};
+  emitir(rec);calzadoReset();
+};
+
+// ---------- UNIFORME ----------
+const U={lines:[]};
+function uniformeRender(){
+  const warn=[];let un=0,tot=0;
+  $('u_lines').innerHTML=U.lines.map((l,i)=>{const c=l.a.coste;un+=l.cant;tot+=(c||0)*l.cant;
+    return '<tr><td class="code">'+esc(l.a.cb)+'</td><td class="code">'+esc(l.a.ref)+'</td><td>'+esc(l.a.desc)+'</td><td>'+esc(l.a.color)+'</td><td><b>'+esc(l.a.talla)+'</b></td><td class="r"><input type="number" min="1" step="1" value="'+l.cant+'" data-i="'+i+'"></td><td class="r">'+(c!=null?money(c):'<span class="tag">sin coste</span>')+'</td><td class="r">'+(c!=null?money(c*l.cant):'—')+'</td><td><button class="x" data-del="'+i+'" title="Quitar">✕</button></td></tr>';}).join('');
+  $('u_calc').innerHTML=U.lines.length?'<div><strong>'+U.lines.length+'</strong><span>Artículos</span></div><div><strong>'+un+'</strong><span>Unidades</span></div><div class="key"><strong>'+money(tot)+'</strong><span>Total a último coste</span></div>':'';
+  const sc=U.lines.filter(l=>l.a.coste==null).length;
+  if(sc)warn.push(sc+' artículo(s) sin último coste en la DATA ICG. Compras tendrá que completarlo en el albarán.');
+  if(U.lines.length&&!$('u_nombre').value.trim())warn.push('Falta el nombre del colaborador.');
+  if(U.lines.length&&!cedOk($('u_cedula').value))warn.push('Revisa la cédula: debe ser como 8-888-2152.');
+  if(U.lines.length&&!$('u_tienda').value)warn.push('Elige la tienda o área.');
+  $('u_warn').innerHTML=warn.map(esc).join('<br>');
+  $('u_emit').disabled=!U.lines.length||warn.some(w=>/^(Falta|Revisa|Elige)/.test(w));
+}
+$('u_scan').addEventListener('keydown',e=>{
+  if(e.key!=='Enter')return;e.preventDefault();const code=e.target.value.trim();e.target.value='';if(!code)return;
+  const a=buscar(code),m=$('u_msg');
+  if(!D.byCB.size){m.className='msg bad';m.textContent='Todavía no está cargada la DATA ICG.';return;}
+  if(!a){m.className='msg bad';m.textContent='El código '+code+' no existe en la DATA ICG.';return;}
+  const l=U.lines.find(x=>x.a===a);if(l)l.cant++;else U.lines.push({a,cant:1});
+  m.className='msg ok';m.textContent='✓ '+a.ref+' · talla '+a.talla+(l?' · ahora '+l.cant+' unidades':'');uniformeRender();
+});
+$('u_lines').addEventListener('change',e=>{const i=e.target.dataset.i;if(i!=null){U.lines[i].cant=Math.max(1,parseInt(e.target.value)||1);uniformeRender();}});
+$('u_lines').addEventListener('click',e=>{const i=e.target.dataset.del;if(i!=null){U.lines.splice(i,1);uniformeRender();}});
+['u_nombre','u_cedula','u_tienda','u_por','u_cargo'].forEach(id=>$(id).addEventListener('input',uniformeRender));
+$('u_tienda').addEventListener('change',()=>store.set('u_tienda',$('u_tienda').value));
+$('u_por').value=store.get('u_por','');$('u_por').addEventListener('change',()=>store.set('u_por',$('u_por').value));
+function uniformeReset(){U.lines=[];['u_nombre','u_cedula','u_cargo'].forEach(id=>$(id).value='');$('u_msg').textContent='';uniformeRender();}
+$('u_reset').onclick=()=>{if(confirm('¿Borrar lo que llevas?'))uniformeReset();};
+$('u_emit').onclick=()=>{
+  const rec={num:nextNum(),tipo:'UNIFORME',fecha:hoyISO(),tienda:$('u_tienda').value,entregadoPor:$('u_por').value.trim(),
+    col:{nombre:$('u_nombre').value.trim().toUpperCase(),cedula:N($('u_cedula').value).replace(/\s/g,''),cargo:$('u_cargo').value.trim()},
+    lineas:U.lines.map(l=>({cb:l.a.cb,ref:l.a.ref,desc:l.a.desc,color:l.a.color,talla:l.a.talla,cant:l.cant,unit:l.a.coste,total:l.a.coste!=null?r2(l.a.coste*l.cant):null})),creado:new Date().toISOString()};
+  emitir(rec);uniformeReset();
+};
+
+// ---------- emitir: registro + Excel para Compras + impresión ----------
+// Registro: en el navegador, y si la APP se abre con el lanzador del PC, también en la carpeta REGISTRO
+let SERVER=false;
+function getReg(){return store.get('registro',[]);}
+function addReg(recs,noSync){const R=getReg(),have=new Set(R.map(r=>r.num+'|'+r.creado)),nuevos=[];for(const r of recs)if(!have.has(r.num+'|'+r.creado)){R.push(r);nuevos.push(r);have.add(r.num+'|'+r.creado);}R.sort((a,b)=>a.creado<b.creado?-1:1);store.set('registro',R);
+  if(SERVER&&!noSync&&nuevos.length)fetch('../registro',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(nuevos)}).then(r=>{if(!r.ok)throw 0;}).catch(()=>alert('No se pudo guardar en la carpeta REGISTRO. Queda guardado en este navegador; vuelve a cargar el Excel más tarde.'));
+  return nuevos.length;}
+async function syncServer(){try{const r=await fetch('../registro',{cache:'no-store'});if(!r.ok)return;const R=await r.json();if(!Array.isArray(R))return;SERVER=true;
+  addReg(R,true);const local=getReg(),have=new Set(R.map(x=>x.num+'|'+x.creado)),faltan=local.filter(x=>!have.has(x.num+'|'+x.creado));
+  if(faltan.length)await fetch('../registro',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(faltan)});
+  $('h_where').textContent='Guardado también en la carpeta REGISTRO de este PC ('+getReg().length+' documentos).';histRender();}catch(e){}}
+function emitir(rec){
+  addReg([rec]);CFG.next++;saveCfg();$('a_next').value=CFG.next;
+  bajarExcel(rec);imprimir(rec);histRender();
+}
+function filasAlbaran(recs){
+  const out=[];
+  for(const r of recs)for(const l of r.lineas)out.push({'Nº documento':r.num,'Fecha':r.fecha,'Tipo':r.tipo,'Tienda / área':r.tienda,'Colaborador':r.col.nombre,'Cédula':r.col.cedula,
+    'Cód. Barras':l.cb,'Referencia':l.ref,'Descripción':l.desc,'Color':l.color,'Talla':l.talla,'Cantidad':l.cant,
+    'Precio unitario':r.tipo==='CALZADO'?l.unit:'', 'Desc. %':r.tipo==='CALZADO'?l.dto:'','Últ. coste unitario':r.tipo==='UNIFORME'?(l.unit==null?'FALTA':l.unit):'',
+    'Subtotal sin ITBMS':r.tipo==='CALZADO'?l.neto:(l.total==null?'':l.total),'ITBMS':r.tipo==='CALZADO'?l.itbms:'','Total':r.tipo==='CALZADO'?l.total:(l.total==null?'':l.total),
+    'Aporte empresa':r.pagare?r.pagare.aporte:'','Monto pagaré':r.pagare?r.pagare.monto:'','Cuotas':r.pagare?r.pagare.cuotas.length+' de '+money(r.pagare.cuotas[0].monto).replace('B/.',''):''});
+  return out;
+}
+function bajarExcel(rec){
+  const wb=XLSX.utils.book_new(),ln=rec.lineas;
+  const head=[[rec.tipo==='CALZADO'?'SALIDA DE CALZADO PARA UNIFORME (CON PAGARÉ)':'SALIDA DE UNIFORME A ÚLTIMO COSTE'],[],
+    ['Nº documento',rec.num],['Fecha',fLarga(rec.fecha)],['Tienda / área',rec.tienda],['Colaborador',rec.col.nombre],['Cédula',rec.col.cedula],
+    ...(rec.entregadoPor?[['Entregado por',rec.entregadoPor]]:[]),[],
+    rec.tipo==='CALZADO'?['Cód. Barras','Referencia','Descripción','Color','Talla','Cantidad','Precio venta','Desc. %','Subtotal sin ITBMS','ITBMS','Total']:['Cód. Barras','Referencia','Descripción','Color','Talla','Cantidad','Últ. coste','Total']];
+  const body=ln.map(l=>rec.tipo==='CALZADO'?[l.cb,l.ref,l.desc,l.color,l.talla,l.cant,l.unit,l.dto,l.neto,l.itbms,l.total]:[l.cb,l.ref,l.desc,l.color,l.talla,l.cant,l.unit==null?'FALTA':l.unit,l.total==null?'':l.total]);
+  const foot=rec.tipo==='CALZADO'?[[],['Aporte de la empresa',rec.pagare.aporte],['Monto del pagaré',rec.pagare.monto],['Cuotas',rec.pagare.cuotas.map(c=>fLarga(c.fecha)+': '+c.monto.toFixed(2)).join(' · ')]]
+    :[[],['Unidades',ln.reduce((s,l)=>s+l.cant,0)],['Total a último coste',r2(ln.reduce((s,l)=>s+(l.total||0),0))]];
+  const ws=XLSX.utils.aoa_to_sheet(head.concat(body,foot));ws['!cols']=[{wch:16},{wch:16},{wch:34},{wch:12},{wch:7},{wch:9},{wch:12},{wch:9},{wch:16},{wch:9},{wch:10}];
+  XLSX.utils.book_append_sheet(wb,ws,'PARA ALBARAN');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['No modificar: registro para el historial de la APP'],[JSON.stringify(rec)]]),'REGISTRO_APP');
+  XLSX.writeFile(wb,rec.num+' '+rec.tipo+' '+rec.col.nombre+'.xlsx');
+}
+function imprimir(rec){
+  const c=rec.col,tienda=esc(rec.tienda),hoy=fLarga(rec.fecha);let h='';
+  if(rec.tipo==='CALZADO'){
+    const l=rec.lineas[0],p=rec.pagare,cu=p.cuotas,ult=cu[cu.length-1],igual=cu.every(x=>x.monto===cu[0].monto);
+    const letrasTxt=igual?'Con '+cu.length+' letra'+(cu.length>1?'s':'')+' de B/.'+cu[0].monto.toFixed(2):'Con '+cu.length+' letras: '+(cu.length-1)+' de B/.'+cu[0].monto.toFixed(2)+' y la última de B/.'+ult.monto.toFixed(2);
+    h+='<div class="page"><div class="brand">SPORT FACTORY</div><h2>PAGARÉ</h2>'+
+      '<p><b>Pagaré No. '+esc(rec.num)+'</b></p><p><b>CANTIDAD: B/. '+p.monto.toFixed(2)+'</b></p><p><b>CALZADO</b></p>'+
+      '<p>Por este medio yo: <u>'+esc(c.nombre)+'</u> con cédula de identidad personal No. <u>'+esc(c.cedula)+'</u> y con domicilio en: <u>'+esc(c.domicilio)+'</u> pagaré a <b>SPORTS FACTORY, S.A.</b> la cantidad de: <u>'+letras(p.monto)+' (B/.'+p.monto.toFixed(2)+')</u> prometo a saldar este pagaré con todas mis prestaciones laborales ya sea por renuncia o liquidación por parte de la empresa, que en esta fecha he recibido en concepto de préstamo.</p>'+
+      '<p>Dicha suma se comenzará a descontar a partir del <u>'+fMay(cu[0].fecha)+'</u> y deberá ser cancelada en día: <u>'+fMay(ult.fecha)+'</u>. <u>'+letrasTxt+'</u>.</p>'+
+      '<p>Designo la ciudad de Panamá como domicilio, para todos los efectos de la presente obligación.</p><p>Panamá, '+hoy+'.</p>'+
+      '<p class="lin">Nombre: ____________________________________</p><p class="lin">Firma: _____________________________________</p><p class="lin">Cédula: ____________________________________</p>'+
+      '<p class="meta" style="margin-top:28px">Artículo: '+esc(l.ref)+' · '+esc(l.color)+' · talla '+esc(l.talla)+' · código '+esc(l.cb)+'</p></div>';
+    h+='<div class="page"><h2>FORMULARIO DE SOLICITUD DE CALZADO PARA UNIFORME</h2><p class="meta">TIENDA: '+tienda+'<br>FECHA: '+hoy+'<br>Nº: '+esc(rec.num)+'</p>'+
+      '<table><tr><th>Colaborador</th><th>Cédula</th><th>Referencia</th><th>Color</th><th>Talla</th><th>Precio venta</th><th>Desc.</th><th>Precio neto sin ITBMS</th><th>ITBMS</th><th>Total</th><th>Aporte empresa</th><th>Monto pagaré</th></tr>'+
+      '<tr><td>'+esc(c.nombre)+'</td><td>'+esc(c.cedula)+'</td><td>'+esc(l.ref)+'</td><td>'+esc(l.color)+'</td><td>'+esc(l.talla)+'</td><td>'+money(l.unit)+'</td><td>'+l.dto+'%</td><td>'+money(l.neto)+'</td><td>'+money(l.itbms)+'</td><td>'+money(l.total)+'</td><td>'+money(p.aporte)+'</td><td><b>'+money(p.monto)+'</b></td></tr></table>'+
+      '<table><tr><th>Cuota</th><th>Fecha</th><th>Monto</th></tr>'+cu.map(x=>'<tr><td>'+x.n+'</td><td>'+fLarga(x.fecha)+'</td><td>'+money(x.monto)+'</td></tr>').join('')+'</table>'+
+      '<div class="firmas"><div>Gerente de Operaciones</div><div>Encargado de Tienda</div><div>Colaborador</div></div></div>';
+  }else{
+    const un=rec.lineas.reduce((s,l)=>s+l.cant,0);
+    h+='<div class="page"><div class="brand">SPORT FACTORY</div><h2>ACTA DE ENTREGA DE UNIFORME</h2><p class="meta">Nº: '+esc(rec.num)+'<br>FECHA: '+hoy+'<br>TIENDA / ÁREA: '+tienda+'<br>COLABORADOR: '+esc(c.nombre)+' · CÉDULA: '+esc(c.cedula)+(c.cargo?' · CARGO: '+esc(c.cargo):'')+'</p>'+
+      '<table><tr><th>Código</th><th>Referencia</th><th>Descripción</th><th>Color</th><th>Talla</th><th>Cant.</th></tr>'+rec.lineas.map(l=>'<tr><td>'+esc(l.cb)+'</td><td>'+esc(l.ref)+'</td><td>'+esc(l.desc)+'</td><td>'+esc(l.color)+'</td><td>'+esc(l.talla)+'</td><td>'+l.cant+'</td></tr>').join('')+'<tr><td colspan="5"><b>Total unidades</b></td><td><b>'+un+'</b></td></tr></table>'+
+      '<p style="margin-top:16px">Recibí conforme las piezas de uniforme detalladas arriba.</p>'+
+      '<div class="firmas"><div>Recibido por (colaborador)</div><div>Entregado por'+(rec.entregadoPor?': '+esc(rec.entregadoPor):'')+'</div></div></div>';
+  }
+  $('doc').innerHTML=h;setTimeout(()=>window.print(),100);
+}
+
+// ---------- historial y reportes ----------
+function semana(iso){const d=new Date(iso+'T12:00:00'),t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const dn=(t.getUTCDay()+6)%7;t.setUTCDate(t.getUTCDate()-dn+3);const f=new Date(Date.UTC(t.getUTCFullYear(),0,4));return t.getUTCFullYear()+'-S'+String(1+Math.round(((t-f)/864e5-3+((f.getUTCDay()+6)%7))/7)).padStart(2,'0');}
+function filtrados(){const d=$('h_desde').value,h=$('h_hasta').value,t=$('h_tipo').value;return getReg().filter(r=>(!d||r.fecha>=d)&&(!h||r.fecha<=h)&&(!t||r.tipo===t));}
+const valor=r=>r2(r.lineas.reduce((s,l)=>s+(l.total||0),0)),unid=r=>r.lineas.reduce((s,l)=>s+l.cant,0);
+function resumen(R){const g=new Map();for(const r of R){const p=$('h_grp').value==='S'?semana(r.fecha):r.fecha.slice(0,7),k=p+'|'+r.tipo;const o=g.get(k)||{p,tipo:r.tipo,docs:0,un:0,val:0,pag:0};o.docs++;o.un+=unid(r);o.val=r2(o.val+valor(r));o.pag=r2(o.pag+(r.pagare?r.pagare.monto:0));g.set(k,o);}return [...g.values()].sort((a,b)=>a.p<b.p?1:-1);}
+function histRender(){
+  const R=filtrados();
+  $('h_sum').innerHTML=resumen(R).map(o=>'<tr><td>'+o.p+'</td><td>'+o.tipo+'</td><td class="r">'+o.docs+'</td><td class="r">'+o.un+'</td><td class="r">'+money(o.val)+'</td><td class="r">'+(o.pag?money(o.pag):'')+'</td></tr>').join('')||'<tr><td colspan="6" class="note">Sin documentos en este rango.</td></tr>';
+  $('h_list').innerHTML=R.slice().reverse().map(r=>'<tr><td class="code">'+esc(r.num)+'</td><td>'+r.fecha+'</td><td>'+r.tipo+'</td><td>'+esc(r.tienda)+'</td><td>'+esc(r.col.nombre)+'</td><td>'+esc(r.col.cedula)+'</td><td class="r">'+unid(r)+'</td><td class="r">'+money(valor(r))+'</td><td class="r">'+(r.pagare?money(r.pagare.monto):'')+'</td><td><button class="sec" style="padding:2px 8px" data-pr="'+esc(r.num+'|'+r.creado)+'">Reimprimir</button></td></tr>').join('');
+}
+$('h_list').addEventListener('click',e=>{const k=e.target.dataset.pr;if(k){const r=getReg().find(x=>x.num+'|'+x.creado===k);if(r)imprimir(r);}});
+['h_desde','h_hasta','h_tipo','h_grp'].forEach(id=>$(id).addEventListener('input',histRender));
+$('h_export').onclick=()=>{
+  const R=filtrados();if(!R.length){alert('No hay documentos en ese rango.');return;}
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(resumen(R).map(o=>({'Período':o.p,'Tipo':o.tipo,'Documentos':o.docs,'Unidades':o.un,'Valor':o.val,'Pagarés':o.pag}))),'RESUMEN');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(filasAlbaran(R)),'DETALLE');
+  const sku=new Map();for(const r of R)for(const l of r.lineas){const k=l.ref+'|'+l.talla;const o=sku.get(k)||{'Referencia':l.ref,'Talla':l.talla,'Descripción':l.desc,'Cantidad':0};o.Cantidad+=l.cant;sku.set(k,o);}
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet([...sku.values()].sort((a,b)=>a.Referencia<b.Referencia?-1:1)),'POR SKU');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['No modificar: registro para el historial de la APP'],...R.map(r=>[JSON.stringify(r)])]),'REGISTRO_APP');
+  XLSX.writeFile(wb,'Reporte uniformes '+($('h_desde').value||R[0].fecha)+' a '+($('h_hasta').value||R[R.length-1].fecha)+'.xlsx');
+};
+drop('dropReg',async f=>{const wb=XLSX.read(await f.arrayBuffer(),{type:'array'}),ws=wb.Sheets['REGISTRO_APP'];if(!ws)throw new Error('no es un Excel emitido por la APP');
+  const recs=XLSX.utils.sheet_to_json(ws,{header:1}).slice(1).map(r=>{try{return JSON.parse(r[0]);}catch(e){return null;}}).filter(r=>r&&r.num&&r.lineas);
+  const n=addReg(recs);histRender();alert(f.name+': '+n+' documento(s) nuevo(s) en el historial.');});
+
+// ---------- ajustes ----------
+$('a_aporte').value=CFG.aporte;$('a_itbms').value=CFG.itbms;$('a_pref').value=CFG.pref;$('a_next').value=CFG.next;$('a_coniva').checked=CFG.coniva;
+$('a_aporte').oninput=e=>{CFG.aporte=+e.target.value||0;saveCfg();calzadoRender();};
+$('a_itbms').oninput=e=>{CFG.itbms=+e.target.value||0;saveCfg();calzadoRender();};
+$('a_pref').oninput=e=>{CFG.pref=N(e.target.value).replace(/[^A-Z0-9]/g,'');saveCfg();};
+$('a_next').oninput=e=>{CFG.next=Math.max(1,parseInt(e.target.value)||1);saveCfg();};
+$('a_coniva').onchange=e=>{CFG.coniva=e.target.checked;saveCfg();calzadoRender();};
+
+// ---------- pestañas ----------
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b));
+  document.querySelectorAll('[data-pane]').forEach(p=>p.hidden=p.dataset.pane!==b.dataset.tab);
+  if(b.dataset.tab==='historial')histRender();
+  const s=b.dataset.tab==='calzado'?$('c_scan'):b.dataset.tab==='uniforme'?$('u_scan'):null;if(s)s.focus();
+});
+function refreshAll(){calzadoRender();uniformeRender();}
+$('c_inicio').value=proximaQuincena();
+fillTiendas();refreshAll();loadFolder();syncServer();
+</script>
+</body>
+</html>
