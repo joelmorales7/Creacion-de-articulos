@@ -80,13 +80,7 @@ td input{padding:3px 6px;font-size:13px;width:80px}
 <h1>Uniformes y pagarés</h1>
 <p class="sub">Calzado para uniforme con pagaré (tiendas) y entrega de uniformes a costo (oficina). La referencia, la talla y el precio salen del código de barras pistoleado. Al terminar se imprimen los documentos y se baja el Excel para que Compras haga el albarán.</p>
 
-<section id="datos">
-  <h2>Data</h2>
-  <div class="grid">
-    <div><b>Artículos (DATA ICG)</b><div class="st" id="st_icg">Buscando la carpeta DATA ICG…</div></div>
-    <div><b>Listas de precios</b><div class="st" id="st_pre">Buscando la carpeta PRECIOS RETAL ICG…</div></div>
-  </div>
-</section>
+<div class="warn" id="aviso" role="alert"></div>
 
 <div class="tabs" role="tablist">
   <button data-tab="calzado" class="on">Calzado con pagaré</button>
@@ -264,20 +258,25 @@ function calcCostes(){
     if(a.coste!=null)n++;}
   D.conCoste=n;
 }
-function statusIcg(extra){calcCostes();const el=$('st_icg');el.className='st'+(D.byCB.size?' ok':'');el.innerHTML=D.byCB.size?('✓ '+D.byRef.size.toLocaleString('es')+' artículos'+(D.hasCost?' · '+(D.conCoste||0).toLocaleString('es')+' con coste':' · <b>sin columnas de valoración de inventario</b>')+(extra||'')):(extra||'Sin cargar');fillTiendas();refreshAll();}
-function statusPre(extra){const el=$('st_pre');el.className='st'+(D.precios.n?' ok':'');el.innerHTML=D.precios.n?('✓ '+D.precios.n.toLocaleString('es')+' artículos con precio · tarifa NB '+D.precios.NB.cb.size.toLocaleString('es')+' códigos · tarifa RB '+D.precios.RB.cb.size.toLocaleString('es')+' códigos'+(extra||'')):(extra||'<span class="msg bad">No encontré las listas de precios. Avisa a Compras.</span>');refreshAll();}
+// La data se carga sola y en silencio; solo se avisa si falta algo (para que avisen a Compras)
+let LISTO=false;const PEND=[];
+function aviso(t){const el=$('aviso');el.innerHTML=t?esc(t)+' Avisa a Compras.':'';}
 async function loadFolder(){
-  if(!/^https?:$/.test(location.protocol)){statusIcg('Abre la app desde la página web o con el lanzador.');statusPre();return;}
+  const fallas=[];
+  if(!/^https?:$/.test(location.protocol)){aviso('Abre la app desde el link o con el lanzador.');return;}
   const list=await getList('icg-files');
-  if(list&&list.length){let i=0;const errs=[];
-    for(const f of list){$('st_icg').textContent='Leyendo '+(++i)+' de '+list.length+': '+f.name.split('/').pop()+'…';
-      try{indexIcg(XLSX.read(await fileBuf(f.name),{type:'array'}));}catch(e){errs.push(f.name.split('/').pop());}}
-    statusIcg(' de '+list.length+' archivo(s)'+(errs.length?'<br><span class="msg bad">No se pudo leer: '+esc(errs.join(', '))+'</span>':''));
-  }else statusIcg('<span class="msg bad">No encontré la carpeta DATA ICG. Avisa a Compras.</span>');
+  if(list&&list.length){for(const f of list){try{indexIcg(XLSX.read(await fileBuf(f.name),{type:'array'}));}catch(e){fallas.push(f.name.split('/').pop());}}}
+  else fallas.push('DATA ICG');
+  calcCostes();
   const pl=await getList('precio-files');
-  if(pl&&pl.length){for(const f of pl){$('st_pre').textContent='Leyendo '+f.name.split('/').pop()+'…';try{indexPrecios(XLSX.read(await fileBuf(f.name),{type:'array'}),f.name.split('/').pop());}catch(e){}}statusPre(' de '+pl.length+' lista(s)');}
-  else statusPre();
+  if(pl&&pl.length){for(const f of pl){try{indexPrecios(XLSX.read(await fileBuf(f.name),{type:'array'}),f.name.split('/').pop());}catch(e){fallas.push(f.name.split('/').pop());}}}
+  if(!D.precios.n)fallas.push('listas de precios');
+  aviso(fallas.length?'No se pudo leer: '+fallas.join(', ')+'.':'');
+  LISTO=true;refreshAll();
+  // lo que se pistoleó mientras cargaba se procesa ahora
+  for(const [inp,code] of PEND.splice(0)){inp.value=code;inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter'}));}
 }
+function esperar(inp,code,m){if(LISTO)return false;PEND.push([inp,code]);m.className='msg';m.textContent='Un momento, la app se está preparando…';return true;}
 
 function fillTiendas(){
   const opt=t=>'<option value="'+t.code+'">'+t.code+' · '+esc(t.name)+'</option>',vacia='<option value="">— elegir —</option>';
@@ -355,8 +354,7 @@ function calzadoRender(){
 }
 $('c_scan').addEventListener('keydown',e=>{
   if(e.key!=='Enter')return;e.preventDefault();const code=e.target.value.trim();e.target.value='';if(!code)return;
-  const a=buscar(code),m=$('c_msg');
-  if(!D.byCB.size){m.className='msg bad';m.textContent='Todavía no está cargada la DATA ICG.';return;}
+  const m=$('c_msg');if(esperar(e.target,code,m))return;const a=buscar(code);
   if(!a){m.className='msg bad';m.textContent='El código '+code+' no existe en la DATA ICG. No se puede emitir con un código desconocido.';return;}
   if(C.art&&C.art!==a&&!confirm('Ya hay un par pistoleado ('+C.art.ref+' talla '+C.art.talla+'). ¿Lo cambias por '+a.ref+' talla '+a.talla+'?'))return;
   C.art=a;
@@ -408,8 +406,7 @@ function uniformeRender(){
 }
 $('u_scan').addEventListener('keydown',e=>{
   if(e.key!=='Enter')return;e.preventDefault();const code=e.target.value.trim();e.target.value='';if(!code)return;
-  const a=buscar(code),m=$('u_msg');
-  if(!D.byCB.size){m.className='msg bad';m.textContent='Todavía no está cargada la DATA ICG.';return;}
+  const m=$('u_msg');if(esperar(e.target,code,m))return;const a=buscar(code);
   if(!a){m.className='msg bad';m.textContent='El código '+code+' no existe en la DATA ICG.';return;}
   const l=U.lines.find(x=>x.a===a);if(l)l.cant++;else U.lines.push({a,cant:1});
   m.className='msg ok';m.textContent='✓ '+a.ref+' · talla '+a.talla+(l?' · ahora '+l.cant+' unidades':'');uniformeRender();
