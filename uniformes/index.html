@@ -87,11 +87,11 @@ td input{padding:3px 6px;font-size:13px;width:80px}
   <h2>Data</h2>
   <div class="grid">
     <div><b>Artículos (DATA ICG)</b><div class="st" id="st_icg">Buscando la carpeta DATA ICG…</div></div>
-    <div><b>Listas de precios</b><div class="st" id="st_pre">Buscando la carpeta LISTAS DE PRECIOS…</div></div>
+    <div><b>Listas de precios</b><div class="st" id="st_pre">Buscando la carpeta PRECIOS RETAL ICG…</div></div>
   </div>
   <div class="bar">
     <label class="drop" id="dropIcg"><input type="file" accept=".xls,.xlsx" multiple><b>Cargar DATA ICG a mano</b><br><small class="note">Si no se cargó sola</small></label>
-    <label class="drop" id="dropPre"><input type="file" accept=".xls,.xlsx,.csv" multiple><b>Cargar lista de precios</b><br><small class="note">Excel con código de barras o referencia y precio</small></label>
+    <label class="drop" id="dropPre"><input type="file" accept=".xls,.xlsx,.csv" multiple><b>Cargar lista de precios</b><br><small class="note">Exportación de ICG con tarifas NB y RB (Neto, Bruto, %Dto)</small></label>
   </div>
 </section>
 
@@ -109,7 +109,7 @@ td input{padding:3px 6px;font-size:13px;width:80px}
     <label class="f">Nombre completo<input id="c_nombre" autocomplete="off"></label>
     <label class="f">Cédula<input id="c_cedula" placeholder="8-888-2152" autocomplete="off"></label>
     <label class="f">Cargo<input id="c_cargo" autocomplete="off"></label>
-    <label class="f">Tienda<select id="c_tienda"></select></label>
+    <label class="f">Tienda (almacén del albarán)<select id="c_tienda"></select></label>
   </div>
   <label class="f" style="margin-top:12px">Domicilio<input id="c_domicilio" autocomplete="off"></label>
 
@@ -145,7 +145,8 @@ td input{padding:3px 6px;font-size:13px;width:80px}
     <label class="f">Nombre completo<input id="u_nombre" autocomplete="off"></label>
     <label class="f">Cédula<input id="u_cedula" autocomplete="off"></label>
     <label class="f">Cargo<input id="u_cargo" autocomplete="off"></label>
-    <label class="f">Tienda / área<select id="u_tienda"></select></label>
+    <label class="f">Tienda del colaborador<select id="u_tienda"></select></label>
+    <label class="f">Almacén de salida (albarán)<select id="u_alm"></select></label>
     <label class="f">Entregado por<input id="u_por" autocomplete="off"></label>
   </div>
   <h2 style="margin-top:22px">2. Pistolear las piezas</h2>
@@ -173,7 +174,7 @@ td input{padding:3px 6px;font-size:13px;width:80px}
   <h3>Resumen</h3>
   <div class="tw"><table><thead><tr><th>Período</th><th>Tipo</th><th class="r">Documentos</th><th class="r">Unidades</th><th class="r">Valor</th><th class="r">Pagarés</th></tr></thead><tbody id="h_sum"></tbody></table></div>
   <h3>Detalle</h3>
-  <div class="tw"><table><thead><tr><th>Nº</th><th>Fecha</th><th>Tipo</th><th>Tienda</th><th>Colaborador</th><th>Cédula</th><th class="r">Unid.</th><th class="r">Valor</th><th class="r">Pagaré</th><th></th></tr></thead><tbody id="h_list"></tbody></table></div>
+  <div class="tw"><table><thead><tr><th>Nº</th><th>Fecha</th><th>Tipo</th><th>Alm.</th><th>Tienda</th><th>Colaborador</th><th>Cédula</th><th class="r">Unid.</th><th class="r">Valor</th><th class="r">Pagaré</th><th></th></tr></thead><tbody id="h_list"></tbody></table></div>
 </section>
 
 <!-- AJUSTES -->
@@ -211,12 +212,18 @@ const CFG=Object.assign({aporte:50,itbms:7,pref:'',next:1,coniva:false},store.ge
 const saveCfg=()=>store.set('cfg',CFG);
 
 // ---------- data ----------
-const D={byCB:new Map(),byRef:new Map(),tiendas:new Set(),hasCost:false,precios:{cb:new Map(),reft:new Map(),ref:new Map(),n:0}};
+// Almacenes de ICG: el de la tienda es el almacén del albarán de venta. Tarifa NB = tiendas New Balance, RB = Running Balboa (multimarca)
+const TIENDAS=[{code:'A2',name:'NEW BALANCE MULTIPLAZA',tarifa:'NB'},{code:'A3',name:'NEW BALANCE ALBROOK',tarifa:'NB'},{code:'A4',name:'NEW BALANCE DORADO MALL',tarifa:'NB'},{code:'A7',name:'NEW BALANCE METRO MALL',tarifa:'NB'},
+  {code:'B1',name:'RUNNING BALBOA MULTIPLAZA',tarifa:'RB'},{code:'B2',name:'RUNNING BALBOA ALBROOK',tarifa:'RB'}];
+const OFICINA={code:'C99',name:'OFICINA',tarifa:''};
+const tiendaDe=code=>TIENDAS.concat(OFICINA).find(t=>t.code===code)||null;
+const TARIFA={NB:'New Balance',RB:'Running Balboa'};
+const nuevaTarifa=()=>({cb:new Map(),reft:new Map(),ref:new Map()});
+const D={byCB:new Map(),byRef:new Map(),hasCost:false,precios:{NB:nuevaTarifa(),RB:nuevaTarifa(),'*':nuevaTarifa(),n:0}};
 function headerRow(A){let h=A.findIndex((r,i)=>i<15&&r.some(c=>CBCOL.test(N(c))||N(c)==='REFERENCIA'));return h<0?0:h;}
 function indexIcg(wb){
   const ws=wb.Sheets[wb.SheetNames[0]],A=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true});
   const h=headerRow(A),H=(A[h]||[]).map(N),up=A[h-1]||[];
-  up.forEach(c=>{const m=String(c).match(/Control de Stocks:\s*(.+)/i);if(m)D.tiendas.add(m[1].trim());});
   const ix=k=>H.indexOf(k),iR=ix('REFERENCIA'),iT=ix('TALLA'),iD=ix('DESCRIPCION'),iC=ix('COLOR'),iDp=ix('DEPARTAMENTO'),iM=ix('MARCA'),iS=ix('SECCION');
   const iCost=H.findIndex(k=>COSTCOL.test(k)),cbs=H.map((k,i)=>CBCOL.test(k)?i:-1).filter(i=>i>=0);
   if(iR<0||!cbs.length)throw new Error('no tiene columnas Referencia y Cód. Barras');
@@ -229,22 +236,33 @@ function indexIcg(wb){
   return n;
 }
 function num(v){if(v===''||v==null)return null;const x=+String(v).replace(/[^0-9.,-]/g,'').replace(/,(?=\d{3}\b)/g,'').replace(',','.');return isFinite(x)?x:null;}
-function indexPrecios(wb){
+// Listas de precios de ICG (un archivo por marca): fila de grupos "Precios de Venta: NEW BALANCE" y "Precios de Venta: RUNNING BALBOA",
+// cada grupo con Neto, Bruto y %Dto. También acepta una lista simple con una sola columna de precio.
+function tarifaDeGrupo(t){t=N(t);return /NEW BALANCE|\bNB\b/.test(t)?'NB':/RUNNING|BALBOA|\bRB\b/.test(t)?'RB':null;}
+function indexPrecios(wb,nombre){
   let n=0;
   for(const sn of wb.SheetNames){
     const A=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:true});
-    const h=A.findIndex((r,i)=>i<20&&r.some(c=>PRICECOL.test(N(c))));if(h<0)continue;
-    const H=A[h].map(N),iP=H.findIndex(k=>PRICECOL.test(k)),iR=H.indexOf('REFERENCIA'),iT=H.indexOf('TALLA'),iDs=H.findIndex(k=>DESCCOL.test(k)),cbs=H.map((k,i)=>CBCOL.test(k)?i:-1).filter(i=>i>=0);
+    const h=A.findIndex((r,i)=>i<20&&r.some(c=>/^(BRUTO|NETO|%? ?DTO\.?)$/.test(N(c))||PRICECOL.test(N(c))));if(h<0)continue;
+    const H=A[h].map(N),up=A[h-1]||[],iR=H.indexOf('REFERENCIA'),iT=H.indexOf('TALLA'),cbs=H.map((k,i)=>CBCOL.test(k)?i:-1).filter(i=>i>=0);
     if(iR<0&&!cbs.length)continue;
-    for(let j=h+1;j<A.length;j++){const r=A[j],p=num(r[iP]);if(p==null||p<=0)continue;
-      const o={precio:p,desc:iDs>=0?(num(r[iDs])||0):0,origen:sn};if(o.desc>0&&o.desc<1)o.desc*=100;
-      for(const i of cbs){const b=dg(r[i]);if(b)D.precios.cb.set(b,o);}
-      if(iR>=0&&r[iR]){const k=N(r[iR]);if(iT>=0&&r[iT])D.precios.reft.set(k+'|'+N(r[iT]),o);if(!D.precios.ref.has(k))D.precios.ref.set(k,o);}
-      n++;}
+    // columnas por tarifa: el grupo es el último título de la fila de arriba a la izquierda de la columna
+    const G={};let g=null;
+    H.forEach((k,i)=>{const t=String(up[i]||'');if(/precio/i.test(t))g=tarifaDeGrupo(t)||'*';const key=g||'*';G[key]=G[key]||{};
+      if(k==='BRUTO')G[key].bruto=i;else if(k==='NETO')G[key].neto=i;else if(/^%? ?DTO\.?( ?%)?$|^DESC/.test(k))G[key].dto=i;else if(PRICECOL.test(k)&&G[key].bruto==null)G[key].bruto=i;});
+    for(let j=h+1;j<A.length;j++){const r=A[j];let any=false;
+      for(const [t,c] of Object.entries(G)){if(c.bruto==null)continue;const bruto=num(r[c.bruto]);if(!(bruto>0))continue;
+        let dto=c.dto!=null?(num(r[c.dto])||0):0;if(dto>0&&dto<1)dto*=100;
+        const o={precio:bruto,desc:dto,neto:c.neto!=null?num(r[c.neto]):null,origen:nombre||sn},P=D.precios[t];any=true;
+        for(const i of cbs){const b=dg(r[i]);if(b)P.cb.set(b,o);}
+        if(iR>=0&&r[iR]){const k=N(r[iR]);if(iT>=0&&r[iT]!=='')P.reft.set(k+'|'+N(r[iT]),o);if(!P.ref.has(k))P.ref.set(k,o);}}
+      if(any)n++;}
   }
   D.precios.n+=n;return n;
 }
-function precioDe(a){const P=D.precios;return P.cb.get(a.cb)||P.reft.get(N(a.ref)+'|'+N(a.talla))||P.ref.get(N(a.ref))||null;}
+function precioDe(a,tarifa){
+  for(const t of [tarifa,'*']){const P=D.precios[t];if(!P)continue;const o=P.cb.get(a.cb)||P.reft.get(N(a.ref)+'|'+N(a.talla))||P.ref.get(N(a.ref));if(o)return o;}
+  return null;}
 function buscar(code){
   const b=dg(code);if(b&&D.byCB.has(b))return D.byCB.get(b);
   if(b&&b.length<13){for(const [k,a] of D.byCB)if(k.endsWith(b)&&k.replace(/^0+/,'')===b.replace(/^0+/,''))return a;}
@@ -259,7 +277,7 @@ async function getList(ep){
 }
 const fileBuf=async name=>{const r=await fetch('../'+name.split('/').map(encodeURIComponent).join('/'),{cache:'no-store'});if(!r.ok)throw new Error('no se pudo leer '+name);return r.arrayBuffer();};
 function statusIcg(extra){const el=$('st_icg');el.className='st'+(D.byCB.size?' ok':'');el.innerHTML=D.byCB.size?('✓ '+D.byRef.size.toLocaleString('es')+' artículos'+(D.hasCost?' · con último coste':' · <b>sin columna de último coste</b>')+(extra||'')):(extra||'Sin cargar');fillTiendas();refreshAll();}
-function statusPre(extra){const el=$('st_pre');el.className='st'+(D.precios.n?' ok':'');el.innerHTML=D.precios.n?('✓ '+D.precios.n.toLocaleString('es')+' precios'+(extra||'')):(extra||'Sin cargar. Mientras no haya lista, el precio de venta se escribe a mano.');refreshAll();}
+function statusPre(extra){const el=$('st_pre');el.className='st'+(D.precios.n?' ok':'');el.innerHTML=D.precios.n?('✓ '+D.precios.n.toLocaleString('es')+' artículos con precio · tarifa NB '+D.precios.NB.cb.size.toLocaleString('es')+' códigos · tarifa RB '+D.precios.RB.cb.size.toLocaleString('es')+' códigos'+(extra||'')):(extra||'Sin cargar. Mientras no haya lista, el precio de venta se escribe a mano.');refreshAll();}
 async function loadFolder(){
   if(!/^https?:$/.test(location.protocol)){statusIcg('Abre la app con el lanzador o desde GitHub, o carga la DATA a mano.');statusPre();return;}
   const list=await getList('icg-files');
@@ -269,16 +287,17 @@ async function loadFolder(){
     statusIcg(' de '+list.length+' archivo(s)'+(errs.length?'<br><span class="msg bad">No se pudo leer: '+esc(errs.join(', '))+'</span>':''));
   }else statusIcg('No encontré la carpeta DATA ICG. Cárgala a mano.');
   const pl=await getList('precio-files');
-  if(pl&&pl.length){for(const f of pl){try{indexPrecios(XLSX.read(await fileBuf(f.name),{type:'array'}));}catch(e){}}statusPre(' de '+pl.length+' lista(s)');}
+  if(pl&&pl.length){for(const f of pl){$('st_pre').textContent='Leyendo '+f.name.split('/').pop()+'…';try{indexPrecios(XLSX.read(await fileBuf(f.name),{type:'array'}),f.name.split('/').pop());}catch(e){}}statusPre(' de '+pl.length+' lista(s)');}
   else statusPre();
 }
 function drop(id,fn){const el=$(id),inp=el.querySelector('input');inp.onchange=async()=>{for(const f of inp.files){try{await fn(f);}catch(e){alert(f.name+': '+e.message);}}inp.value='';};}
 drop('dropIcg',async f=>{indexIcg(XLSX.read(await f.arrayBuffer(),{type:'array'}));statusIcg(' (cargada a mano)');});
-drop('dropPre',async f=>{const n=indexPrecios(XLSX.read(await f.arrayBuffer(),{type:'array'}));if(!n)throw new Error('no encontré columnas de precio y código de barras o referencia');statusPre();});
+drop('dropPre',async f=>{const n=indexPrecios(XLSX.read(await f.arrayBuffer(),{type:'array'}),f.name);if(!n)throw new Error('no encontré columnas de precio y código de barras o referencia');statusPre();});
 
 function fillTiendas(){
-  const opts=['',...[...D.tiendas].sort(),'OFICINA'];
-  for(const id of ['c_tienda','u_tienda']){const s=$(id),v=s.value||store.get(id,'');s.innerHTML=opts.map(t=>'<option value="'+esc(t)+'">'+(t?esc(t):'— elegir —')+'</option>').join('');if(opts.includes(v))s.value=v;}
+  const opt=t=>'<option value="'+t.code+'">'+t.code+' · '+esc(t.name)+'</option>',vacia='<option value="">— elegir —</option>';
+  const L={c_tienda:vacia+TIENDAS.map(opt).join(''),u_tienda:vacia+TIENDAS.concat(OFICINA).map(opt).join(''),u_alm:TIENDAS.concat(OFICINA).map(opt).join('')};
+  for(const id in L){const s=$(id),v=store.get(id,id==='u_alm'?'C99':'');s.innerHTML=L[id];if(tiendaDe(v))s.value=v;}
 }
 
 // ---------- utilidades de documento ----------
@@ -355,14 +374,20 @@ $('c_scan').addEventListener('keydown',e=>{
   if(!D.byCB.size){m.className='msg bad';m.textContent='Todavía no está cargada la DATA ICG.';return;}
   if(!a){m.className='msg bad';m.textContent='El código '+code+' no existe en la DATA ICG. No se puede emitir con un código desconocido.';return;}
   if(C.art&&C.art!==a&&!confirm('Ya hay un par pistoleado ('+C.art.ref+' talla '+C.art.talla+'). ¿Lo cambias por '+a.ref+' talla '+a.talla+'?'))return;
-  C.art=a;const p=precioDe(a);
+  C.art=a;
   m.className='msg ok';m.textContent='✓ '+a.ref+' · talla '+a.talla;
   if((a.depto||a.seccion)&&!/CALZADO|ZAPAT/.test(a.depto+' '+a.seccion)){m.className='msg bad';m.textContent='Atención: '+a.ref+' es de '+(a.seccion||a.depto)+', no de calzado.';}
-  $('c_artb').innerHTML='<tr><td class="code">'+esc(a.cb)+'</td><td class="code">'+esc(a.ref)+'</td><td>'+esc(a.desc)+'</td><td>'+esc(a.color)+'</td><td><b>'+esc(a.talla)+'</b></td><td class="r">'+(p?money(p.precio):'—')+'</td></tr>';
-  $('c_precio').value=p?p.precio.toFixed(2):'';$('c_precio').readOnly=!!p;$('c_desc').value=p&&p.desc?p.desc:0;
-  $('c_pnote').textContent=p?'Precio tomado de la lista de precios ('+p.origen+')'+(CFG.coniva?', que ya incluye ITBMS.':'.'):'No encontré este artículo en las listas de precios: escribe el precio de venta de la etiqueta.';
-  $('c_art').hidden=false;syncV();
+  $('c_art').hidden=false;aplicarPrecio();
 });
+// El precio sale de la tarifa de la tienda elegida (NB o RB): bruto y % de descuento vigente de la lista
+function aplicarPrecio(){
+  const a=C.art;if(!a)return;const t=tiendaDe($('c_tienda').value),tar=t&&t.tarifa,p=tar?precioDe(a,tar):null;
+  $('c_artb').innerHTML='<tr><td class="code">'+esc(a.cb)+'</td><td class="code">'+esc(a.ref)+'</td><td>'+esc(a.desc)+'</td><td>'+esc(a.color)+'</td><td><b>'+esc(a.talla)+'</b></td><td class="r">'+(p?money(p.precio)+(p.desc?' −'+p.desc+'%':''):'—')+'</td></tr>';
+  $('c_precio').value=p?p.precio.toFixed(2):'';$('c_precio').readOnly=!!p;$('c_desc').value=p?p.desc:0;$('c_desc').readOnly=!!p;
+  $('c_pnote').textContent=!tar?'Elige la tienda para tomar el precio de su tarifa (NB o RB).':p?'Precio bruto y descuento vigente de la tarifa '+TARIFA[tar]+' ('+p.origen+')'+(CFG.coniva?', que ya incluye ITBMS.':'.'):'No encontré este artículo en la tarifa '+TARIFA[tar]+': escribe el precio de venta de la etiqueta.';
+  syncV();
+}
+$('c_tienda').addEventListener('change',aplicarPrecio);
 ['c_precio','c_desc','c_nombre','c_cedula','c_domicilio','c_tienda','c_inicio','c_frec','c_cargo'].forEach(id=>$(id).addEventListener('input',calzadoRender));
 function syncV(){const k=calzadoCalc();if(k){const n=Math.max(1,parseInt($('c_ncuotas').value)||1);$('c_vcuota').value=r2(Math.ceil(r2(k.pagare/n*100))/100).toFixed(2);}calzadoRender();}
 $('c_ncuotas').addEventListener('input',syncV);
@@ -374,7 +399,7 @@ $('c_reset').onclick=()=>{if(confirm('¿Borrar lo que llevas?'))calzadoReset();}
 $('c_ncuotas').addEventListener('change',calzadoRender);
 $('c_emit').onclick=()=>{
   const a=C.art,k=calzadoCalc(),{arr}=cuotas(k.pagare),f=fechasCuotas($('c_inicio').value||proximaQuincena(),arr.length,$('c_frec').value);
-  const rec={num:nextNum(),tipo:'CALZADO',fecha:hoyISO(),tienda:$('c_tienda').value,
+  const tc=tiendaDe($('c_tienda').value),rec={num:nextNum(),tipo:'CALZADO',fecha:hoyISO(),tienda:tc.name,almacen:tc.code,tarifa:tc.tarifa,
     col:{nombre:$('c_nombre').value.trim().toUpperCase(),cedula:N($('c_cedula').value).replace(/\s/g,''),cargo:$('c_cargo').value.trim(),domicilio:$('c_domicilio').value.trim()},
     lineas:[{cb:a.cb,ref:a.ref,desc:a.desc,color:a.color,talla:a.talla,cant:1,unit:k.precio,dto:k.desc,neto:k.neto,itbms:k.itbms,total:k.total}],
     pagare:{monto:k.pagare,aporte:k.aporte,cuotas:arr.map((m,i)=>({n:i+1,fecha:f[i],monto:m})),frec:$('c_frec').value},creado:new Date().toISOString()};
@@ -392,7 +417,7 @@ function uniformeRender(){
   if(sc)warn.push(sc+' artículo(s) sin último coste en la DATA ICG. Compras tendrá que completarlo en el albarán.');
   if(U.lines.length&&!$('u_nombre').value.trim())warn.push('Falta el nombre del colaborador.');
   if(U.lines.length&&!cedOk($('u_cedula').value))warn.push('Revisa la cédula: debe ser como 8-888-2152.');
-  if(U.lines.length&&!$('u_tienda').value)warn.push('Elige la tienda o área.');
+  if(U.lines.length&&!$('u_tienda').value)warn.push('Elige la tienda del colaborador.');
   $('u_warn').innerHTML=warn.map(esc).join('<br>');
   $('u_emit').disabled=!U.lines.length||warn.some(w=>/^(Falta|Revisa|Elige)/.test(w));
 }
@@ -408,11 +433,12 @@ $('u_lines').addEventListener('change',e=>{const i=e.target.dataset.i;if(i!=null
 $('u_lines').addEventListener('click',e=>{const i=e.target.dataset.del;if(i!=null){U.lines.splice(i,1);uniformeRender();}});
 ['u_nombre','u_cedula','u_tienda','u_por','u_cargo'].forEach(id=>$(id).addEventListener('input',uniformeRender));
 $('u_tienda').addEventListener('change',()=>store.set('u_tienda',$('u_tienda').value));
+$('u_alm').addEventListener('change',()=>store.set('u_alm',$('u_alm').value));
 $('u_por').value=store.get('u_por','');$('u_por').addEventListener('change',()=>store.set('u_por',$('u_por').value));
 function uniformeReset(){U.lines=[];['u_nombre','u_cedula','u_cargo'].forEach(id=>$(id).value='');$('u_msg').textContent='';uniformeRender();}
 $('u_reset').onclick=()=>{if(confirm('¿Borrar lo que llevas?'))uniformeReset();};
 $('u_emit').onclick=()=>{
-  const rec={num:nextNum(),tipo:'UNIFORME',fecha:hoyISO(),tienda:$('u_tienda').value,entregadoPor:$('u_por').value.trim(),
+  const tu=tiendaDe($('u_tienda').value),ta=tiendaDe($('u_alm').value),rec={num:nextNum(),tipo:'UNIFORME',fecha:hoyISO(),tienda:tu.name,almacen:ta.code,almacenNombre:ta.name,entregadoPor:$('u_por').value.trim(),
     col:{nombre:$('u_nombre').value.trim().toUpperCase(),cedula:N($('u_cedula').value).replace(/\s/g,''),cargo:$('u_cargo').value.trim()},
     lineas:U.lines.map(l=>({cb:l.a.cb,ref:l.a.ref,desc:l.a.desc,color:l.a.color,talla:l.a.talla,cant:l.cant,unit:l.a.coste,total:l.a.coste!=null?r2(l.a.coste*l.cant):null})),creado:new Date().toISOString()};
   emitir(rec);uniformeReset();
@@ -435,7 +461,7 @@ function emitir(rec){
 }
 function filasAlbaran(recs){
   const out=[];
-  for(const r of recs)for(const l of r.lineas)out.push({'Nº documento':r.num,'Fecha':r.fecha,'Tipo':r.tipo,'Tienda / área':r.tienda,'Colaborador':r.col.nombre,'Cédula':r.col.cedula,
+  for(const r of recs)for(const l of r.lineas)out.push({'Nº documento':r.num,'Fecha':r.fecha,'Tipo':r.tipo,'Almacén':r.almacen||'','Tienda / área':r.tienda,'Colaborador':r.col.nombre,'Cédula':r.col.cedula,
     'Cód. Barras':l.cb,'Referencia':l.ref,'Descripción':l.desc,'Color':l.color,'Talla':l.talla,'Cantidad':l.cant,
     'Precio unitario':r.tipo==='CALZADO'?l.unit:'', 'Desc. %':r.tipo==='CALZADO'?l.dto:'','Últ. coste unitario':r.tipo==='UNIFORME'?(l.unit==null?'FALTA':l.unit):'',
     'Subtotal sin ITBMS':r.tipo==='CALZADO'?l.neto:(l.total==null?'':l.total),'ITBMS':r.tipo==='CALZADO'?l.itbms:'','Total':r.tipo==='CALZADO'?l.total:(l.total==null?'':l.total),
@@ -445,7 +471,7 @@ function filasAlbaran(recs){
 function bajarExcel(rec){
   const wb=XLSX.utils.book_new(),ln=rec.lineas;
   const head=[[rec.tipo==='CALZADO'?'SALIDA DE CALZADO PARA UNIFORME (CON PAGARÉ)':'SALIDA DE UNIFORME A ÚLTIMO COSTE'],[],
-    ['Nº documento',rec.num],['Fecha',fLarga(rec.fecha)],['Tienda / área',rec.tienda],['Colaborador',rec.col.nombre],['Cédula',rec.col.cedula],
+    ['Nº documento',rec.num],['Fecha',fLarga(rec.fecha)],['Almacén del albarán',rec.almacen?rec.almacen+' · '+(rec.almacenNombre||rec.tienda):''],...(rec.tarifa?[['Tarifa',TARIFA[rec.tarifa]||rec.tarifa]]:[]),['Tienda del colaborador',rec.tienda],['Colaborador',rec.col.nombre],['Cédula',rec.col.cedula],
     ...(rec.entregadoPor?[['Entregado por',rec.entregadoPor]]:[]),[],
     rec.tipo==='CALZADO'?['Cód. Barras','Referencia','Descripción','Color','Talla','Cantidad','Precio venta','Desc. %','Subtotal sin ITBMS','ITBMS','Total']:['Cód. Barras','Referencia','Descripción','Color','Talla','Cantidad','Últ. coste','Total']];
   const body=ln.map(l=>rec.tipo==='CALZADO'?[l.cb,l.ref,l.desc,l.color,l.talla,l.cant,l.unit,l.dto,l.neto,l.itbms,l.total]:[l.cb,l.ref,l.desc,l.color,l.talla,l.cant,l.unit==null?'FALTA':l.unit,l.total==null?'':l.total]);
@@ -468,14 +494,14 @@ function imprimir(rec){
       '<p>Designo la ciudad de Panamá como domicilio, para todos los efectos de la presente obligación.</p><p>Panamá, '+hoy+'.</p>'+
       '<p class="lin">Nombre: ____________________________________</p><p class="lin">Firma: _____________________________________</p><p class="lin">Cédula: ____________________________________</p>'+
       '<p class="meta" style="margin-top:28px">Artículo: '+esc(l.ref)+' · '+esc(l.color)+' · talla '+esc(l.talla)+' · código '+esc(l.cb)+'</p></div>';
-    h+='<div class="page"><h2>FORMULARIO DE SOLICITUD DE CALZADO PARA UNIFORME</h2><p class="meta">TIENDA: '+tienda+'<br>FECHA: '+hoy+'<br>Nº: '+esc(rec.num)+'</p>'+
+    h+='<div class="page"><h2>FORMULARIO DE SOLICITUD DE CALZADO PARA UNIFORME</h2><p class="meta">TIENDA: '+tienda+(rec.almacen?' (almacén '+esc(rec.almacen)+')':'')+'<br>FECHA: '+hoy+'<br>Nº: '+esc(rec.num)+'</p>'+
       '<table><tr><th>Colaborador</th><th>Cédula</th><th>Referencia</th><th>Color</th><th>Talla</th><th>Precio venta</th><th>Desc.</th><th>Precio neto sin ITBMS</th><th>ITBMS</th><th>Total</th><th>Aporte empresa</th><th>Monto pagaré</th></tr>'+
       '<tr><td>'+esc(c.nombre)+'</td><td>'+esc(c.cedula)+'</td><td>'+esc(l.ref)+'</td><td>'+esc(l.color)+'</td><td>'+esc(l.talla)+'</td><td>'+money(l.unit)+'</td><td>'+l.dto+'%</td><td>'+money(l.neto)+'</td><td>'+money(l.itbms)+'</td><td>'+money(l.total)+'</td><td>'+money(p.aporte)+'</td><td><b>'+money(p.monto)+'</b></td></tr></table>'+
       '<table><tr><th>Cuota</th><th>Fecha</th><th>Monto</th></tr>'+cu.map(x=>'<tr><td>'+x.n+'</td><td>'+fLarga(x.fecha)+'</td><td>'+money(x.monto)+'</td></tr>').join('')+'</table>'+
       '<div class="firmas"><div>Gerente de Operaciones</div><div>Encargado de Tienda</div><div>Colaborador</div></div></div>';
   }else{
     const un=rec.lineas.reduce((s,l)=>s+l.cant,0);
-    h+='<div class="page"><div class="brand">SPORT FACTORY</div><h2>ACTA DE ENTREGA DE UNIFORME</h2><p class="meta">Nº: '+esc(rec.num)+'<br>FECHA: '+hoy+'<br>TIENDA / ÁREA: '+tienda+'<br>COLABORADOR: '+esc(c.nombre)+' · CÉDULA: '+esc(c.cedula)+(c.cargo?' · CARGO: '+esc(c.cargo):'')+'</p>'+
+    h+='<div class="page"><div class="brand">SPORT FACTORY</div><h2>ACTA DE ENTREGA DE UNIFORME</h2><p class="meta">Nº: '+esc(rec.num)+'<br>FECHA: '+hoy+'<br>TIENDA DEL COLABORADOR: '+tienda+'<br>SALE DEL ALMACÉN: '+esc((rec.almacen||'')+' '+(rec.almacenNombre||''))+'<br>COLABORADOR: '+esc(c.nombre)+' · CÉDULA: '+esc(c.cedula)+(c.cargo?' · CARGO: '+esc(c.cargo):'')+'</p>'+
       '<table><tr><th>Código</th><th>Referencia</th><th>Descripción</th><th>Color</th><th>Talla</th><th>Cant.</th></tr>'+rec.lineas.map(l=>'<tr><td>'+esc(l.cb)+'</td><td>'+esc(l.ref)+'</td><td>'+esc(l.desc)+'</td><td>'+esc(l.color)+'</td><td>'+esc(l.talla)+'</td><td>'+l.cant+'</td></tr>').join('')+'<tr><td colspan="5"><b>Total unidades</b></td><td><b>'+un+'</b></td></tr></table>'+
       '<p style="margin-top:16px">Recibí conforme las piezas de uniforme detalladas arriba.</p>'+
       '<div class="firmas"><div>Recibido por (colaborador)</div><div>Entregado por'+(rec.entregadoPor?': '+esc(rec.entregadoPor):'')+'</div></div></div>';
@@ -491,7 +517,7 @@ function resumen(R){const g=new Map();for(const r of R){const p=$('h_grp').value
 function histRender(){
   const R=filtrados();
   $('h_sum').innerHTML=resumen(R).map(o=>'<tr><td>'+o.p+'</td><td>'+o.tipo+'</td><td class="r">'+o.docs+'</td><td class="r">'+o.un+'</td><td class="r">'+money(o.val)+'</td><td class="r">'+(o.pag?money(o.pag):'')+'</td></tr>').join('')||'<tr><td colspan="6" class="note">Sin documentos en este rango.</td></tr>';
-  $('h_list').innerHTML=R.slice().reverse().map(r=>'<tr><td class="code">'+esc(r.num)+'</td><td>'+r.fecha+'</td><td>'+r.tipo+'</td><td>'+esc(r.tienda)+'</td><td>'+esc(r.col.nombre)+'</td><td>'+esc(r.col.cedula)+'</td><td class="r">'+unid(r)+'</td><td class="r">'+money(valor(r))+'</td><td class="r">'+(r.pagare?money(r.pagare.monto):'')+'</td><td><button class="sec" style="padding:2px 8px" data-pr="'+esc(r.num+'|'+r.creado)+'">Reimprimir</button></td></tr>').join('');
+  $('h_list').innerHTML=R.slice().reverse().map(r=>'<tr><td class="code">'+esc(r.num)+'</td><td>'+r.fecha+'</td><td>'+r.tipo+'</td><td>'+esc(r.almacen||'')+'</td><td>'+esc(r.tienda)+'</td><td>'+esc(r.col.nombre)+'</td><td>'+esc(r.col.cedula)+'</td><td class="r">'+unid(r)+'</td><td class="r">'+money(valor(r))+'</td><td class="r">'+(r.pagare?money(r.pagare.monto):'')+'</td><td><button class="sec" style="padding:2px 8px" data-pr="'+esc(r.num+'|'+r.creado)+'">Reimprimir</button></td></tr>').join('');
 }
 $('h_list').addEventListener('click',e=>{const k=e.target.dataset.pr;if(k){const r=getReg().find(x=>x.num+'|'+x.creado===k);if(r)imprimir(r);}});
 ['h_desde','h_hasta','h_tipo','h_grp'].forEach(id=>$(id).addEventListener('input',histRender));
