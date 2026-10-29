@@ -51,9 +51,6 @@ td input{padding:3px 6px;font-size:13px;width:80px}
 .strip .key{background:var(--acs)}
 .st{font-size:13px;color:var(--mut)}
 .st.ok{color:var(--ok)}
-.drop{border:1.5px dashed var(--ln);border-radius:6px;padding:12px;display:block;cursor:pointer}
-.drop:hover{border-color:var(--ac);background:var(--acs)}
-.drop input{display:none}
 .tag{font-size:12px;padding:1px 7px;border-radius:10px;background:var(--acs);color:var(--ac);white-space:nowrap}
 [hidden]{display:none!important}
 #doc{display:none}
@@ -89,16 +86,11 @@ td input{padding:3px 6px;font-size:13px;width:80px}
     <div><b>Artículos (DATA ICG)</b><div class="st" id="st_icg">Buscando la carpeta DATA ICG…</div></div>
     <div><b>Listas de precios</b><div class="st" id="st_pre">Buscando la carpeta PRECIOS RETAL ICG…</div></div>
   </div>
-  <div class="bar">
-    <label class="drop" id="dropIcg"><input type="file" accept=".xls,.xlsx" multiple><b>Cargar DATA ICG a mano</b><br><small class="note">Si no se cargó sola</small></label>
-    <label class="drop" id="dropPre"><input type="file" accept=".xls,.xlsx,.csv" multiple><b>Cargar lista de precios</b><br><small class="note">Exportación de ICG con tarifas NB y RB (Neto, Bruto, %Dto)</small></label>
-  </div>
 </section>
 
 <div class="tabs" role="tablist">
   <button data-tab="calzado" class="on">Calzado con pagaré</button>
   <button data-tab="uniforme">Uniforme a costo</button>
-  <button data-tab="historial">Historial y reportes</button>
   <button data-tab="ajustes">Ajustes</button>
 </div>
 
@@ -119,8 +111,8 @@ td input{padding:3px 6px;font-size:13px;width:80px}
   <div id="c_art" hidden>
     <div class="tw"><table><thead><tr><th>Código</th><th>Referencia</th><th>Descripción</th><th>Color</th><th>Talla</th><th class="r">Precio venta</th></tr></thead><tbody id="c_artb"></tbody></table></div>
     <div class="grid" style="margin-top:12px">
-      <label class="f">Precio de venta sin ITBMS (B/.)<input id="c_precio" type="number" step="0.01" min="0"></label>
-      <label class="f">Descuento vigente del artículo (%)<input id="c_desc" type="number" step="1" min="0" max="100" value="0"></label>
+      <label class="f">Precio de venta sin ITBMS (B/.)<input id="c_precio" type="number" step="0.01" min="0" readonly tabindex="-1"></label>
+      <label class="f">Descuento vigente del artículo (%)<input id="c_desc" type="number" step="1" min="0" max="100" value="0" readonly tabindex="-1"></label>
     </div>
     <div class="note" id="c_pnote"></div>
   </div>
@@ -156,25 +148,6 @@ td input{padding:3px 6px;font-size:13px;width:80px}
   <div class="strip" id="u_calc"></div>
   <div class="warn" id="u_warn"></div>
   <div class="bar"><span class="sp"></span><button class="sec" id="u_reset">Limpiar</button><button id="u_emit" disabled>Emitir entrega</button></div>
-</section>
-
-<!-- HISTORIAL -->
-<section data-pane="historial" hidden>
-  <h2>Documentos emitidos</h2>
-  <p class="note">Lo emitido en esta computadora queda guardado aquí. Compras junta el de todas las tiendas cargando los Excel que recibe: cada uno trae su registro. <b id="h_where"></b></p>
-  <div class="bar" style="margin-top:0">
-    <label class="f">Desde<input type="date" id="h_desde"></label>
-    <label class="f">Hasta<input type="date" id="h_hasta"></label>
-    <label class="f">Tipo<select id="h_tipo"><option value="">Todos</option><option>CALZADO</option><option>UNIFORME</option></select></label>
-    <label class="f">Agrupar<select id="h_grp"><option value="M">Por mes</option><option value="S">Por semana</option></select></label>
-    <span class="sp"></span>
-    <label class="drop" id="dropReg"><input type="file" accept=".xlsx" multiple><b>Cargar Excel recibidos</b></label>
-    <button id="h_export">Bajar reporte Excel</button>
-  </div>
-  <h3>Resumen</h3>
-  <div class="tw"><table><thead><tr><th>Período</th><th>Tipo</th><th class="r">Documentos</th><th class="r">Unidades</th><th class="r">Valor</th><th class="r">Pagarés</th></tr></thead><tbody id="h_sum"></tbody></table></div>
-  <h3>Detalle</h3>
-  <div class="tw"><table><thead><tr><th>Nº</th><th>Fecha</th><th>Tipo</th><th>Alm.</th><th>Tienda</th><th>Colaborador</th><th>Cédula</th><th class="r">Unid.</th><th class="r">Valor</th><th class="r">Pagaré</th><th></th></tr></thead><tbody id="h_list"></tbody></table></div>
 </section>
 
 <!-- AJUSTES -->
@@ -292,22 +265,19 @@ function calcCostes(){
   D.conCoste=n;
 }
 function statusIcg(extra){calcCostes();const el=$('st_icg');el.className='st'+(D.byCB.size?' ok':'');el.innerHTML=D.byCB.size?('✓ '+D.byRef.size.toLocaleString('es')+' artículos'+(D.hasCost?' · '+(D.conCoste||0).toLocaleString('es')+' con coste':' · <b>sin columnas de valoración de inventario</b>')+(extra||'')):(extra||'Sin cargar');fillTiendas();refreshAll();}
-function statusPre(extra){const el=$('st_pre');el.className='st'+(D.precios.n?' ok':'');el.innerHTML=D.precios.n?('✓ '+D.precios.n.toLocaleString('es')+' artículos con precio · tarifa NB '+D.precios.NB.cb.size.toLocaleString('es')+' códigos · tarifa RB '+D.precios.RB.cb.size.toLocaleString('es')+' códigos'+(extra||'')):(extra||'Sin cargar. Mientras no haya lista, el precio de venta se escribe a mano.');refreshAll();}
+function statusPre(extra){const el=$('st_pre');el.className='st'+(D.precios.n?' ok':'');el.innerHTML=D.precios.n?('✓ '+D.precios.n.toLocaleString('es')+' artículos con precio · tarifa NB '+D.precios.NB.cb.size.toLocaleString('es')+' códigos · tarifa RB '+D.precios.RB.cb.size.toLocaleString('es')+' códigos'+(extra||'')):(extra||'<span class="msg bad">No encontré las listas de precios. Avisa a Compras.</span>');refreshAll();}
 async function loadFolder(){
-  if(!/^https?:$/.test(location.protocol)){statusIcg('Abre la app con el lanzador o desde GitHub, o carga la DATA a mano.');statusPre();return;}
+  if(!/^https?:$/.test(location.protocol)){statusIcg('Abre la app desde la página web o con el lanzador.');statusPre();return;}
   const list=await getList('icg-files');
   if(list&&list.length){let i=0;const errs=[];
     for(const f of list){$('st_icg').textContent='Leyendo '+(++i)+' de '+list.length+': '+f.name.split('/').pop()+'…';
       try{indexIcg(XLSX.read(await fileBuf(f.name),{type:'array'}));}catch(e){errs.push(f.name.split('/').pop());}}
     statusIcg(' de '+list.length+' archivo(s)'+(errs.length?'<br><span class="msg bad">No se pudo leer: '+esc(errs.join(', '))+'</span>':''));
-  }else statusIcg('No encontré la carpeta DATA ICG. Cárgala a mano.');
+  }else statusIcg('<span class="msg bad">No encontré la carpeta DATA ICG. Avisa a Compras.</span>');
   const pl=await getList('precio-files');
   if(pl&&pl.length){for(const f of pl){$('st_pre').textContent='Leyendo '+f.name.split('/').pop()+'…';try{indexPrecios(XLSX.read(await fileBuf(f.name),{type:'array'}),f.name.split('/').pop());}catch(e){}}statusPre(' de '+pl.length+' lista(s)');}
   else statusPre();
 }
-function drop(id,fn){const el=$(id),inp=el.querySelector('input');inp.onchange=async()=>{for(const f of inp.files){try{await fn(f);}catch(e){alert(f.name+': '+e.message);}}inp.value='';};}
-drop('dropIcg',async f=>{indexIcg(XLSX.read(await f.arrayBuffer(),{type:'array'}));statusIcg(' (cargada a mano)');});
-drop('dropPre',async f=>{const n=indexPrecios(XLSX.read(await f.arrayBuffer(),{type:'array'}),f.name);if(!n)throw new Error('no encontré columnas de precio y código de barras o referencia');statusPre();});
 
 function fillTiendas(){
   const opt=t=>'<option value="'+t.code+'">'+t.code+' · '+esc(t.name)+'</option>',vacia='<option value="">— elegir —</option>';
@@ -373,7 +343,7 @@ function calzadoRender(){
   $('c_cuotas').innerHTML=arr.map((m,i)=>'<tr><td>'+(i+1)+'</td><td>'+fLarga(f[i])+'</td><td class="r">'+money(m)+'</td></tr>').join('');
   if(+$('c_ncuotas').value!==arr.length)warn.push('Con cuotas de '+money(+$('c_vcuota').value)+' el pagaré se paga en '+arr.length+' cuota(s).');
   if(rest>0.004)warn.push('Con '+$('c_ncuotas').value+' cuotas de '+money(+$('c_vcuota').value)+' faltan '+money(rest)+'. Sube el valor de la cuota o el número de cuotas.');
-  if(!(k.precio>0))warn.push('Falta el precio de venta.');
+  if(!(k.precio>0))warn.push('Falta el precio: el artículo no está en la lista de precios de la tarifa de esta tienda.');
   if(!$('c_nombre').value.trim())warn.push('Falta el nombre del colaborador.');
   if(!cedOk($('c_cedula').value))warn.push('Revisa la cédula: debe ser como 8-888-2152.');
   if(cedOk($('c_cedula').value)&&cedCorta($('c_cedula').value))warn.push('Confirma la cédula: el último grupo tiene muy pocos dígitos.');
@@ -398,8 +368,8 @@ $('c_scan').addEventListener('keydown',e=>{
 function aplicarPrecio(){
   const a=C.art;if(!a)return;const t=tiendaDe($('c_tienda').value),tar=t&&t.tarifa,p=tar?precioDe(a,tar):null;
   $('c_artb').innerHTML='<tr><td class="code">'+esc(a.cb)+'</td><td class="code">'+esc(a.ref)+'</td><td>'+esc(a.desc)+'</td><td>'+esc(a.color)+'</td><td><b>'+esc(a.talla)+'</b></td><td class="r">'+(p?money(p.precio)+(p.desc?' −'+p.desc+'%':''):'—')+'</td></tr>';
-  $('c_precio').value=p?p.precio.toFixed(2):'';$('c_precio').readOnly=!!p;$('c_desc').value=p?p.desc:0;$('c_desc').readOnly=!!p;
-  $('c_pnote').textContent=!tar?'Elige la tienda para tomar el precio de su tarifa (NB o RB).':p?'Precio bruto y descuento vigente de la tarifa '+TARIFA[tar]+' ('+p.origen+')'+(CFG.coniva?', que ya incluye ITBMS.':'.'):'No encontré este artículo en la tarifa '+TARIFA[tar]+': escribe el precio de venta de la etiqueta.';
+  $('c_precio').value=p?p.precio.toFixed(2):'';$('c_desc').value=p?p.desc:0;
+  $('c_pnote').textContent=!tar?'Elige la tienda para tomar el precio de su tarifa (NB o RB).':p?'Precio bruto y descuento vigente de la tarifa '+TARIFA[tar]+' ('+p.origen+')'+(CFG.coniva?', que ya incluye ITBMS.':'.'):'Este artículo no está en la tarifa '+TARIFA[tar]+'. Avisa a Compras para que lo revise.';
   syncV();
 }
 $('c_tienda').addEventListener('change',aplicarPrecio);
@@ -469,19 +439,10 @@ function addReg(recs,noSync){const R=getReg(),have=new Set(R.map(r=>r.num+'|'+r.
 async function syncServer(){try{const r=await fetch('../registro',{cache:'no-store'});if(!r.ok)return;const R=await r.json();if(!Array.isArray(R))return;SERVER=true;
   addReg(R,true);const local=getReg(),have=new Set(R.map(x=>x.num+'|'+x.creado)),faltan=local.filter(x=>!have.has(x.num+'|'+x.creado));
   if(faltan.length)await fetch('../registro',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(faltan)});
-  $('h_where').textContent='Guardado también en la carpeta REGISTRO de este PC ('+getReg().length+' documentos).';histRender();}catch(e){}}
+}catch(e){}}
 function emitir(rec){
   addReg([rec]);CFG.next++;saveCfg();$('a_next').value=CFG.next;
-  bajarExcel(rec);imprimir(rec);histRender();
-}
-function filasAlbaran(recs){
-  const out=[];
-  for(const r of recs)for(const l of r.lineas)out.push({'Nº documento':r.num,'Fecha':r.fecha,'Tipo':r.tipo,'Almacén':r.almacen||'','Tienda / área':r.tienda,'Colaborador':r.col.nombre,'Cédula':r.col.cedula,
-    'Cód. Barras':l.cb,'Referencia':l.ref,'Descripción':l.desc,'Color':l.color,'Talla':l.talla,'Cantidad':l.cant,
-    'Precio unitario':r.tipo==='CALZADO'?l.unit:'', 'Desc. %':r.tipo==='CALZADO'?l.dto:'','Coste unitario':r.tipo==='UNIFORME'?(l.unit==null?'FALTA':l.unit):'',
-    'Subtotal sin ITBMS':r.tipo==='CALZADO'?l.neto:(l.total==null?'':l.total),'ITBMS':r.tipo==='CALZADO'?l.itbms:'','Total':r.tipo==='CALZADO'?l.total:(l.total==null?'':l.total),
-    'Aporte empresa':r.pagare?r.pagare.aporte:'','Monto pagaré':r.pagare?r.pagare.monto:'','Cuotas':r.pagare?r.pagare.cuotas.length+' de '+money(r.pagare.cuotas[0].monto).replace('B/.',''):''});
-  return out;
+  bajarExcel(rec);imprimir(rec);
 }
 function bajarExcel(rec){
   const wb=XLSX.utils.book_new(),ln=rec.lineas;
@@ -524,32 +485,6 @@ function imprimir(rec){
   $('doc').innerHTML=h;setTimeout(()=>window.print(),100);
 }
 
-// ---------- historial y reportes ----------
-function semana(iso){const d=new Date(iso+'T12:00:00'),t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const dn=(t.getUTCDay()+6)%7;t.setUTCDate(t.getUTCDate()-dn+3);const f=new Date(Date.UTC(t.getUTCFullYear(),0,4));return t.getUTCFullYear()+'-S'+String(1+Math.round(((t-f)/864e5-3+((f.getUTCDay()+6)%7))/7)).padStart(2,'0');}
-function filtrados(){const d=$('h_desde').value,h=$('h_hasta').value,t=$('h_tipo').value;return getReg().filter(r=>(!d||r.fecha>=d)&&(!h||r.fecha<=h)&&(!t||r.tipo===t));}
-const valor=r=>r2(r.lineas.reduce((s,l)=>s+(l.total||0),0)),unid=r=>r.lineas.reduce((s,l)=>s+l.cant,0);
-function resumen(R){const g=new Map();for(const r of R){const p=$('h_grp').value==='S'?semana(r.fecha):r.fecha.slice(0,7),k=p+'|'+r.tipo;const o=g.get(k)||{p,tipo:r.tipo,docs:0,un:0,val:0,pag:0};o.docs++;o.un+=unid(r);o.val=r2(o.val+valor(r));o.pag=r2(o.pag+(r.pagare?r.pagare.monto:0));g.set(k,o);}return [...g.values()].sort((a,b)=>a.p<b.p?1:-1);}
-function histRender(){
-  const R=filtrados();
-  $('h_sum').innerHTML=resumen(R).map(o=>'<tr><td>'+o.p+'</td><td>'+o.tipo+'</td><td class="r">'+o.docs+'</td><td class="r">'+o.un+'</td><td class="r">'+money(o.val)+'</td><td class="r">'+(o.pag?money(o.pag):'')+'</td></tr>').join('')||'<tr><td colspan="6" class="note">Sin documentos en este rango.</td></tr>';
-  $('h_list').innerHTML=R.slice().reverse().map(r=>'<tr><td class="code">'+esc(r.num)+'</td><td>'+r.fecha+'</td><td>'+r.tipo+'</td><td>'+esc(r.almacen||'')+'</td><td>'+esc(r.tienda)+'</td><td>'+esc(r.col.nombre)+'</td><td>'+esc(r.col.cedula)+'</td><td class="r">'+unid(r)+'</td><td class="r">'+money(valor(r))+'</td><td class="r">'+(r.pagare?money(r.pagare.monto):'')+'</td><td><button class="sec" style="padding:2px 8px" data-pr="'+esc(r.num+'|'+r.creado)+'">Reimprimir</button></td></tr>').join('');
-}
-$('h_list').addEventListener('click',e=>{const k=e.target.dataset.pr;if(k){const r=getReg().find(x=>x.num+'|'+x.creado===k);if(r)imprimir(r);}});
-['h_desde','h_hasta','h_tipo','h_grp'].forEach(id=>$(id).addEventListener('input',histRender));
-$('h_export').onclick=()=>{
-  const R=filtrados();if(!R.length){alert('No hay documentos en ese rango.');return;}
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(resumen(R).map(o=>({'Período':o.p,'Tipo':o.tipo,'Documentos':o.docs,'Unidades':o.un,'Valor':o.val,'Pagarés':o.pag}))),'RESUMEN');
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(filasAlbaran(R)),'DETALLE');
-  const sku=new Map();for(const r of R)for(const l of r.lineas){const k=l.ref+'|'+l.talla;const o=sku.get(k)||{'Referencia':l.ref,'Talla':l.talla,'Descripción':l.desc,'Cantidad':0};o.Cantidad+=l.cant;sku.set(k,o);}
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet([...sku.values()].sort((a,b)=>a.Referencia<b.Referencia?-1:1)),'POR SKU');
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['No modificar: registro para el historial de la APP'],...R.map(r=>[JSON.stringify(r)])]),'REGISTRO_APP');
-  XLSX.writeFile(wb,'Reporte uniformes '+($('h_desde').value||R[0].fecha)+' a '+($('h_hasta').value||R[R.length-1].fecha)+'.xlsx');
-};
-drop('dropReg',async f=>{const wb=XLSX.read(await f.arrayBuffer(),{type:'array'}),ws=wb.Sheets['REGISTRO_APP'];if(!ws)throw new Error('no es un Excel emitido por la APP');
-  const recs=XLSX.utils.sheet_to_json(ws,{header:1}).slice(1).map(r=>{try{return JSON.parse(r[0]);}catch(e){return null;}}).filter(r=>r&&r.num&&r.lineas);
-  const n=addReg(recs);histRender();alert(f.name+': '+n+' documento(s) nuevo(s) en el historial.');});
-
 // ---------- ajustes ----------
 $('a_aporte').value=CFG.aporte;$('a_itbms').value=CFG.itbms;$('a_pref').value=CFG.pref;$('a_next').value=CFG.next;$('a_coniva').checked=CFG.coniva;
 $('a_aporte').oninput=e=>{CFG.aporte=+e.target.value||0;saveCfg();calzadoRender();};
@@ -562,7 +497,6 @@ $('a_coniva').onchange=e=>{CFG.coniva=e.target.checked;saveCfg();calzadoRender()
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b));
   document.querySelectorAll('[data-pane]').forEach(p=>p.hidden=p.dataset.pane!==b.dataset.tab);
-  if(b.dataset.tab==='historial')histRender();
   const s=b.dataset.tab==='calzado'?$('c_scan'):b.dataset.tab==='uniforme'?$('u_scan'):null;if(s)s.focus();
 });
 function refreshAll(){calzadoRender();uniformeRender();}
