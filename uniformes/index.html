@@ -152,7 +152,7 @@ td input{padding:3px 6px;font-size:13px;width:80px}
   <h2 style="margin-top:22px">2. Pistolear las piezas</h2>
   <input class="scan" id="u_scan" placeholder="Pistolee cada pieza (una lectura = 1 unidad)" autocomplete="off">
   <div class="msg" id="u_msg"></div>
-  <div class="tw" style="margin-top:8px"><table><thead><tr><th>Código</th><th>Referencia</th><th>Descripción</th><th>Color</th><th>Talla</th><th class="r">Cant.</th><th class="r">Últ. coste</th><th class="r">Total</th><th></th></tr></thead><tbody id="u_lines"></tbody></table></div>
+  <div class="tw" style="margin-top:8px"><table><thead><tr><th>Código</th><th>Referencia</th><th>Descripción</th><th>Color</th><th>Talla</th><th class="r">Cant.</th><th class="r">Coste</th><th class="r">Total</th><th></th></tr></thead><tbody id="u_lines"></tbody></table></div>
   <div class="strip" id="u_calc"></div>
   <div class="warn" id="u_warn"></div>
   <div class="bar"><span class="sp"></span><button class="sec" id="u_reset">Limpiar</button><button id="u_emit" disabled>Emitir entrega</button></div>
@@ -187,7 +187,7 @@ td input{padding:3px 6px;font-size:13px;width:80px}
     <label class="f">Próximo número<input id="a_next" type="number" min="1" step="1"></label>
   </div>
   <label class="c" style="margin-top:12px"><input type="checkbox" id="a_coniva"> Los precios de la lista ya incluyen ITBMS</label>
-  <p class="note">El pagaré sale como: precio de venta × (1 − descuento vigente) + ITBMS − aporte de la empresa. El uniforme se entrega al último coste, sin pagaré.</p>
+  <p class="note">El pagaré sale como: precio de venta × (1 − descuento vigente) + ITBMS − aporte de la empresa. El uniforme se entrega a coste (valoración de inventario ÷ inventario de la DATA ICG), sin pagaré.</p>
 </section>
 </main>
 
@@ -225,12 +225,14 @@ function indexIcg(wb){
   const ws=wb.Sheets[wb.SheetNames[0]],A=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true});
   const h=headerRow(A),H=(A[h]||[]).map(N),up=A[h-1]||[];
   const ix=k=>H.indexOf(k),iR=ix('REFERENCIA'),iT=ix('TALLA'),iD=ix('DESCRIPCION'),iC=ix('COLOR'),iDp=ix('DEPARTAMENTO'),iM=ix('MARCA'),iS=ix('SECCION');
+  const iInv=H.map((k,i)=>/^INVENTARIO\b/.test(k)?i:-1).filter(i=>i>=0),iVal=H.map((k,i)=>/^VALORACION INVENTARIO\b/.test(k)?i:-1).filter(i=>i>=0);
   const iCost=H.findIndex(k=>COSTCOL.test(k)),cbs=H.map((k,i)=>CBCOL.test(k)?i:-1).filter(i=>i>=0);
   if(iR<0||!cbs.length)throw new Error('no tiene columnas Referencia y Cód. Barras');
-  if(iCost>=0)D.hasCost=true;
+  if(iCost>=0||iVal.length)D.hasCost=true;
   let n=0;
   for(let j=h+1;j<A.length;j++){const r=A[j];if(!r[iR])continue;
-    const a={ref:String(r[iR]).trim(),talla:iT>=0?String(r[iT]).trim():'',desc:iD>=0?String(r[iD]).trim():'',color:iC>=0?String(r[iC]).trim():'',depto:iDp>=0?N(r[iDp]):'',seccion:iS>=0?N(r[iS]):'',marca:iM>=0?String(r[iM]).trim():'',coste:iCost>=0?num(r[iCost]):null,cb:''};
+    const a={ref:String(r[iR]).trim(),talla:iT>=0?String(r[iT]).trim():'',desc:iD>=0?String(r[iD]).trim():'',color:iC>=0?String(r[iC]).trim():'',depto:iDp>=0?N(r[iDp]):'',seccion:iS>=0?N(r[iS]):'',marca:iM>=0?String(r[iM]).trim():'',coste:iCost>=0?num(r[iCost]):null,cb:'',
+      inv:iInv.reduce((s,i)=>s+(num(r[i])||0),0),val:iVal.reduce((s,i)=>s+(num(r[i])||0),0)};
     for(const i of cbs){const b=dg(r[i]);if(b){if(!a.cb)a.cb=b;D.byCB.set(b,a);}}
     D.byRef.set(N(a.ref)+'|'+N(a.talla),a);n++;}
   return n;
@@ -276,7 +278,20 @@ async function getList(ep){
   try{const r=await fetch('../'+ep);if(!r.ok)return null;return await r.json();}catch(e){return null;}
 }
 const fileBuf=async name=>{const r=await fetch('../'+name.split('/').map(encodeURIComponent).join('/'),{cache:'no-store'});if(!r.ok)throw new Error('no se pudo leer '+name);return r.arrayBuffer();};
-function statusIcg(extra){const el=$('st_icg');el.className='st'+(D.byCB.size?' ok':'');el.innerHTML=D.byCB.size?('✓ '+D.byRef.size.toLocaleString('es')+' artículos'+(D.hasCost?' · con último coste':' · <b>sin columna de último coste</b>')+(extra||'')):(extra||'Sin cargar');fillTiendas();refreshAll();}
+// Coste = Valoración inventario ÷ Inventario (como lo calcula el reporte de ICG). Si la talla no tiene stock,
+// se usa el de la referencia (suma de valoración ÷ suma de inventario de sus tallas con stock).
+function calcCostes(){
+  const ref=new Map();
+  for(const a of D.byRef.values())if(a.inv>0&&a.val>0){const k=N(a.ref),o=ref.get(k)||{inv:0,val:0};o.inv+=a.inv;o.val+=a.val;ref.set(k,o);}
+  let n=0;
+  for(const a of D.byRef.values()){if(a.costeCol==null)a.costeCol=a.coste;
+    if(a.costeCol!=null&&a.costeCol>0){a.coste=a.costeCol;a.costeDe='ICG';}
+    else if(a.inv>0&&a.val>0){a.coste=r2(a.val/a.inv);a.costeDe='talla';}
+    else{const o=ref.get(N(a.ref));if(o){a.coste=r2(o.val/o.inv);a.costeDe='referencia';}else{a.coste=null;a.costeDe='';}}
+    if(a.coste!=null)n++;}
+  D.conCoste=n;
+}
+function statusIcg(extra){calcCostes();const el=$('st_icg');el.className='st'+(D.byCB.size?' ok':'');el.innerHTML=D.byCB.size?('✓ '+D.byRef.size.toLocaleString('es')+' artículos'+(D.hasCost?' · '+(D.conCoste||0).toLocaleString('es')+' con coste':' · <b>sin columnas de valoración de inventario</b>')+(extra||'')):(extra||'Sin cargar');fillTiendas();refreshAll();}
 function statusPre(extra){const el=$('st_pre');el.className='st'+(D.precios.n?' ok':'');el.innerHTML=D.precios.n?('✓ '+D.precios.n.toLocaleString('es')+' artículos con precio · tarifa NB '+D.precios.NB.cb.size.toLocaleString('es')+' códigos · tarifa RB '+D.precios.RB.cb.size.toLocaleString('es')+' códigos'+(extra||'')):(extra||'Sin cargar. Mientras no haya lista, el precio de venta se escribe a mano.');refreshAll();}
 async function loadFolder(){
   if(!/^https?:$/.test(location.protocol)){statusIcg('Abre la app con el lanzador o desde GitHub, o carga la DATA a mano.');statusPre();return;}
@@ -411,10 +426,10 @@ const U={lines:[]};
 function uniformeRender(){
   const warn=[];let un=0,tot=0;
   $('u_lines').innerHTML=U.lines.map((l,i)=>{const c=l.a.coste;un+=l.cant;tot+=(c||0)*l.cant;
-    return '<tr><td class="code">'+esc(l.a.cb)+'</td><td class="code">'+esc(l.a.ref)+'</td><td>'+esc(l.a.desc)+'</td><td>'+esc(l.a.color)+'</td><td><b>'+esc(l.a.talla)+'</b></td><td class="r"><input type="number" min="1" step="1" value="'+l.cant+'" data-i="'+i+'"></td><td class="r">'+(c!=null?money(c):'<span class="tag">sin coste</span>')+'</td><td class="r">'+(c!=null?money(c*l.cant):'—')+'</td><td><button class="x" data-del="'+i+'" title="Quitar">✕</button></td></tr>';}).join('');
-  $('u_calc').innerHTML=U.lines.length?'<div><strong>'+U.lines.length+'</strong><span>Artículos</span></div><div><strong>'+un+'</strong><span>Unidades</span></div><div class="key"><strong>'+money(tot)+'</strong><span>Total a último coste</span></div>':'';
+    return '<tr><td class="code">'+esc(l.a.cb)+'</td><td class="code">'+esc(l.a.ref)+'</td><td>'+esc(l.a.desc)+'</td><td>'+esc(l.a.color)+'</td><td><b>'+esc(l.a.talla)+'</b></td><td class="r"><input type="number" min="1" step="1" value="'+l.cant+'" data-i="'+i+'"></td><td class="r">'+(c!=null?money(c)+(l.a.costeDe==='referencia'?' <span class="tag" title="La talla no tiene stock: coste promedio de la referencia">ref.</span>':''):'<span class="tag">sin coste</span>')+'</td><td class="r">'+(c!=null?money(c*l.cant):'—')+'</td><td><button class="x" data-del="'+i+'" title="Quitar">✕</button></td></tr>';}).join('');
+  $('u_calc').innerHTML=U.lines.length?'<div><strong>'+U.lines.length+'</strong><span>Artículos</span></div><div><strong>'+un+'</strong><span>Unidades</span></div><div class="key"><strong>'+money(tot)+'</strong><span>Total a coste</span></div>':'';
   const sc=U.lines.filter(l=>l.a.coste==null).length;
-  if(sc)warn.push(sc+' artículo(s) sin último coste en la DATA ICG. Compras tendrá que completarlo en el albarán.');
+  if(sc)warn.push(sc+' artículo(s) sin coste: no tienen stock en la DATA ICG para calcularlo. Compras tendrá que completarlo en el albarán.');
   if(U.lines.length&&!$('u_nombre').value.trim())warn.push('Falta el nombre del colaborador.');
   if(U.lines.length&&!cedOk($('u_cedula').value))warn.push('Revisa la cédula: debe ser como 8-888-2152.');
   if(U.lines.length&&!$('u_tienda').value)warn.push('Elige la tienda del colaborador.');
@@ -463,20 +478,20 @@ function filasAlbaran(recs){
   const out=[];
   for(const r of recs)for(const l of r.lineas)out.push({'Nº documento':r.num,'Fecha':r.fecha,'Tipo':r.tipo,'Almacén':r.almacen||'','Tienda / área':r.tienda,'Colaborador':r.col.nombre,'Cédula':r.col.cedula,
     'Cód. Barras':l.cb,'Referencia':l.ref,'Descripción':l.desc,'Color':l.color,'Talla':l.talla,'Cantidad':l.cant,
-    'Precio unitario':r.tipo==='CALZADO'?l.unit:'', 'Desc. %':r.tipo==='CALZADO'?l.dto:'','Últ. coste unitario':r.tipo==='UNIFORME'?(l.unit==null?'FALTA':l.unit):'',
+    'Precio unitario':r.tipo==='CALZADO'?l.unit:'', 'Desc. %':r.tipo==='CALZADO'?l.dto:'','Coste unitario':r.tipo==='UNIFORME'?(l.unit==null?'FALTA':l.unit):'',
     'Subtotal sin ITBMS':r.tipo==='CALZADO'?l.neto:(l.total==null?'':l.total),'ITBMS':r.tipo==='CALZADO'?l.itbms:'','Total':r.tipo==='CALZADO'?l.total:(l.total==null?'':l.total),
     'Aporte empresa':r.pagare?r.pagare.aporte:'','Monto pagaré':r.pagare?r.pagare.monto:'','Cuotas':r.pagare?r.pagare.cuotas.length+' de '+money(r.pagare.cuotas[0].monto).replace('B/.',''):''});
   return out;
 }
 function bajarExcel(rec){
   const wb=XLSX.utils.book_new(),ln=rec.lineas;
-  const head=[[rec.tipo==='CALZADO'?'SALIDA DE CALZADO PARA UNIFORME (CON PAGARÉ)':'SALIDA DE UNIFORME A ÚLTIMO COSTE'],[],
+  const head=[[rec.tipo==='CALZADO'?'SALIDA DE CALZADO PARA UNIFORME (CON PAGARÉ)':'SALIDA DE UNIFORME A COSTE'],[],
     ['Nº documento',rec.num],['Fecha',fLarga(rec.fecha)],['Almacén del albarán',rec.almacen?rec.almacen+' · '+(rec.almacenNombre||rec.tienda):''],...(rec.tarifa?[['Tarifa',TARIFA[rec.tarifa]||rec.tarifa]]:[]),['Tienda del colaborador',rec.tienda],['Colaborador',rec.col.nombre],['Cédula',rec.col.cedula],
     ...(rec.entregadoPor?[['Entregado por',rec.entregadoPor]]:[]),[],
-    rec.tipo==='CALZADO'?['Cód. Barras','Referencia','Descripción','Color','Talla','Cantidad','Precio venta','Desc. %','Subtotal sin ITBMS','ITBMS','Total']:['Cód. Barras','Referencia','Descripción','Color','Talla','Cantidad','Últ. coste','Total']];
+    rec.tipo==='CALZADO'?['Cód. Barras','Referencia','Descripción','Color','Talla','Cantidad','Precio venta','Desc. %','Subtotal sin ITBMS','ITBMS','Total']:['Cód. Barras','Referencia','Descripción','Color','Talla','Cantidad','Coste unitario','Total']];
   const body=ln.map(l=>rec.tipo==='CALZADO'?[l.cb,l.ref,l.desc,l.color,l.talla,l.cant,l.unit,l.dto,l.neto,l.itbms,l.total]:[l.cb,l.ref,l.desc,l.color,l.talla,l.cant,l.unit==null?'FALTA':l.unit,l.total==null?'':l.total]);
   const foot=rec.tipo==='CALZADO'?[[],['Aporte de la empresa',rec.pagare.aporte],['Monto del pagaré',rec.pagare.monto],['Cuotas',rec.pagare.cuotas.map(c=>fLarga(c.fecha)+': '+c.monto.toFixed(2)).join(' · ')]]
-    :[[],['Unidades',ln.reduce((s,l)=>s+l.cant,0)],['Total a último coste',r2(ln.reduce((s,l)=>s+(l.total||0),0))]];
+    :[[],['Unidades',ln.reduce((s,l)=>s+l.cant,0)],['Total a coste',r2(ln.reduce((s,l)=>s+(l.total||0),0))]];
   const ws=XLSX.utils.aoa_to_sheet(head.concat(body,foot));ws['!cols']=[{wch:16},{wch:16},{wch:34},{wch:12},{wch:7},{wch:9},{wch:12},{wch:9},{wch:16},{wch:9},{wch:10}];
   XLSX.utils.book_append_sheet(wb,ws,'PARA ALBARAN');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['No modificar: registro para el historial de la APP'],[JSON.stringify(rec)]]),'REGISTRO_APP');
