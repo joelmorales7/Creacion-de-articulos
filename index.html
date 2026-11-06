@@ -241,7 +241,7 @@ const ACC=[[/VISERA|\bVISOR/,'HEADWEAR','VISERAS'],[/GORRA|\bCAP\b|\bHAT\b|HEADW
 function parseMarca(s,T){
   const raw=String(s==null?'':s),c=' '+clean(raw)+' ';let season='',brand='';
   const m=N(raw).match(/(?:^|[^A-Z])(SS|FALL|FW|AW|SPRING|SUMMER)\s*-?\s*(20\d{2}|\d{2})(?!\d)/);
-  if(m)season=(/^(SS|SPRING|SUMMER)$/.test(m[1])?'SS':'FALL')+(m[2].length===2?'20'+m[2]:m[2]); // formato ICG: SS2026 / FALL2026
+  if(m)season=(/^(SS|SPRING|SUMMER)$/.test(m[1])?'SS':'FALL')+' '+(m[2].length===2?'20'+m[2]:m[2]); // formato ICG: SS 2026 / FALL 2026 (con espacio)
   else if(/CARRY\s*-?\s*OVER/.test(N(raw)))season='CARRYOVER'; // productos sin temporada, llegan en varios despachos
   T._bl=T._bl||Object.keys(T.marca).concat(Object.keys(BRAND_ALIAS)).sort((a,b)=>b.length-a.length);
   for(const k of T._bl){if(c.includes(' '+clean(k)+' ')){brand=BRAND_ALIAS[k]||k;break;}}
@@ -486,6 +486,7 @@ function applyPrice(r,ms,pv,fmt){
   const pf=pv?(pv.priceFile||pv.file):'';
   if(a!=null&&b!=null&&a!==b){setPrice(r,'');r._prices=[[b,'Precompra: '+pf+' (retail '+pp+')'],[a,'Lista de empaque (MSRP '+ms+')']];}
   else if(a==null&&b!=null){setPrice(r,b);r._psrc='Precompra: '+pf+' (retail '+pp+')';}
+  else if(a!=null)r._psrc='Lista de empaque: MSRP '+ms+(b!=null?' (coincide con la precompra '+pf+')':'');
 }
 // Encabezados de la precompra (cada formato del fabricante los nombra distinto)
 // (ON trae el código en NOMBRE_MODELO y el nombre en CODIGO MODELO: se decide por el contenido, ver preventaIndex)
@@ -499,10 +500,10 @@ const PVNAME=[/^STYLE NAME$/,/^MARKETING NAME$/,/^MODELO2$/,/^(DESCRIPTION|MODEL
 const codeLike=v=>{v=String(v??'').trim();return /\d/.test(v)&&!/\s/.test(v)&&/^[A-Z0-9][A-Z0-9._\-\/]{4,}$/i.test(v);};
 // Código de precompra -> formato ICG (NB apparel trae MB6174CD_AAR, en ICG es MB6174CD-AAR)
 const PK=s=>N(s).replace(/_/g,'-');
-// Temporada desde el nombre del archivo, la hoja o el título: F26/FW26/AW26/FALL 2026 -> FALL2026; S27/SS27/SPRING 2027 -> SS2027;
-// semestres NB: S1-26 -> SS2026, S2 26 / S2'26 -> FALL2026
-function seasonOf(s){s=N(s);let m=s.match(/(?:^|[^A-Z])S([12])\s?['-]?\s?(\d{2})(?!\d)/);if(m)return (m[1]==='1'?'SS':'FALL')+'20'+m[2];
-  m=s.match(/(?:^|[^A-Z])(FALL|FW|AW|F|SPRING|SUMMER|SS|S)\s?['-]?\s?(20\d{2}|\d{2})(?!\d)/);return m?(/^(SPRING|SUMMER|SS|S)$/.test(m[1])?'SS':'FALL')+(m[2].length===2?'20'+m[2]:m[2]):'';}
+// Temporada desde el nombre del archivo, la hoja o el título: F26/FW26/AW26/FALL 2026 -> FALL 2026; S27/SS27/SPRING 2027 -> SS 2027;
+// semestres NB: S1-26 -> SS 2026, S2 26 / S2'26 -> FALL 2026
+function seasonOf(s){s=N(s);let m=s.match(/(?:^|[^A-Z])S([12])\s?['-]?\s?(\d{2})(?!\d)/);if(m)return (m[1]==='1'?'SS':'FALL')+' 20'+m[2];
+  m=s.match(/(?:^|[^A-Z])(FALL|FW|AW|F|SPRING|SUMMER|SS|S)\s?['-]?\s?(20\d{2}|\d{2})(?!\d)/);return m?(/^(SPRING|SUMMER|SS|S)$/.test(m[1])?'SS':'FALL')+' '+(m[2].length===2?'20'+m[2]:m[2]):'';}
 // Fotos incrustadas en un Excel (xlsx/xlsm/xlsb): por hoja, fila (0 = primera fila) -> URL de la imagen.
 // Hoja -> dibujo: xl/worksheets/_rels/sheetN.*.rels; dibujo -> imagen: xl/drawings/_rels; fila: <xdr:from>/<xdr:to> de cada ancla.
 function preventaPhotos(buf,names){
@@ -737,8 +738,8 @@ const S={prov:null,icg:null,pv:null,rows:[],stats:null,F:new Set(),log:[],dirty:
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
-{const y=new Date().getFullYear(),o=[];for(let a=y-1;a<=y+2;a++)o.push('SS'+a,'FALL'+a);o.push('CARRYOVER');
- $('temp').innerHTML=o.map(s=>'<option>'+s+'</option>').join('');$('temp').value=(new Date().getMonth()<6?'SS':'FALL')+y;}
+{const y=new Date().getFullYear(),o=[];for(let a=y-1;a<=y+2;a++)o.push('SS '+a,'FALL '+a);o.push('CARRYOVER');
+ $('temp').innerHTML=o.map(s=>'<option>'+s+'</option>').join('');$('temp').value=(new Date().getMonth()<6?'SS ':'FALL ')+y;}
 $('dlmarcas').innerHTML=Object.keys(T.marca).map(m=>'<option value="'+esc(m)+'">').join('');
 
 // Lee la primera hoja y detecta la fila de encabezados (puede no ser la fila 1)
@@ -975,8 +976,13 @@ function colorCell(r,i){
 function priceCell(r,i){
   if(r._prices)return '<td'+(r['precio 1']===''?' class="bad"':'')+' title="La lista de empaque y la precompra traen precios distintos: elige uno"><select data-i="'+i+'" data-k="PRICESEL"><option value="">— elegir precio —</option>'+
     r._prices.map(([v,s],j)=>'<option value="'+j+'"'+(v===r['precio 1']?' selected':'')+'>'+esc(v+' · '+s)+'</option>').join('')+'</select></td>';
-  return '<td'+(isBad(r,'precio 1')?' class="bad"':'')+' title="'+esc(r._psrc||'')+'">'+esc(r['precio 1'])+(r._psrc?' <span class="note">ⓟ</span>':'')+'</td>';
+  const p=r['precio 1'],src=r._psrc||'';
+  const tip=p===''?'Falta el precio de venta: no viene MSRP en la lista de empaque ni precio en la precompra. Qué hacer: en "Informe de datos faltantes" (sección 2) hay un precio sugerido con el botón Usar, o agrega el formato de precompra de la marca en DATA PRECOMPRA.'
+    :'Precio de venta tomado de: '+(src||'lista de empaque (MSRP)')+'. Se redondea el MSRP y se resta 0.05.';
+  return '<td'+(isBad(r,'precio 1')?' class="bad"':'')+' title="'+esc(tip)+'">'+esc(p)+(p!==''?'<br><span class="note" style="font-size:11px">'+esc(PSHORT(src))+'</span>':'<br><span class="note" style="font-size:11px">sin precio</span>')+'</td>';
 }
+// Origen del precio en corto, visible debajo del precio (el detalle está al pasar el mouse)
+const PSHORT=s=>/^Precompra/.test(s)?'precompra':/^Sugerido/.test(s)?'sugerido (parecidos)':/^Tomado de otra fila/.test(s)?'otra talla misma ref.':/^Elegido/.test(s)?'elegido por ti':/^Cargado/.test(s)?'plantilla trabajada':'MSRP lista';
 const PVLAB={season:'Temporada',ref:'Referencia',name:'Modelo',gender:'Género',color:'Color',cat:'Categoría',sub:'Subcategoría',type:'Tipo',price:'Precio retail',intro:'Lanzamiento',collection:'Colección',story:'Color story',campaign:'Campaña',marketing:'Marketing',project:'Tipo (CO/CU/New)',pillar:'Pilar',file:'Archivo',sheet:'Hoja'};
 function pvCell(r){
   const v=r._pv;if(!v)return '<td></td>';
@@ -1022,7 +1028,7 @@ function applyEdit(r,k,v){
       (x._ok=x._ok||{})[f]=1;if(x._f)delete x._f[f];if(x._miss)delete x._miss[f];}
     return;}
   if(k==='OKC'){for(const x of S.rows)if(x['CREACION SI/NO']==='SKU NUEVO'&&x.Referencia===r.Referencia&&x.COLOR===r.COLOR)x._colorOk=1;return;}
-  if(k==='PRICESEL'){setPrice(r,v);return;}
+  if(k==='PRICESEL'){setPrice(r,v);const o=r._prices&&r._prices.find(x=>x[0]===v);r._psrc=o?'Elegido por ti entre lista y precompra: '+o[1]:'Sugerido por artículos parecidos o cargado de una plantilla trabajada';return;}
   if(k==='COLORSEL'){r.COLOR=v;if(r.COLOR!=='')delete r._f.COLOR;else r._f.COLOR=1;return;}
   if(k==='MARCA_N'){v=N(v);r.MARCA_N=v;r.marca=T.marca[v]??'';delete r._f.marca;if(r._miss&&r.marca!=='')delete r._miss.marca;}
   else{r[k]=v;if(r._f)delete r._f[k];if(r._miss&&v!==''&&v!==0)delete r._miss[k];}
@@ -1068,7 +1074,7 @@ $('impfile').onchange=async e=>{
       for(const k of IMPF){if(!(k in p))continue;let v=p[k];if(num(k))v=v===''?'':Number(v);else if(k==='precio 1')v=v===''?'':Number(v);else v=String(v);
         const cur=k==='precio 1'?r['precio 1']:r[k];if(String(cur??'')===String(v??''))continue;
         if(k==='COLOR'&&r._colors){applyEdit(r,'COLORSEL',v);edLog(r,'COLORSEL',v);}
-        else if(k==='precio 1'){applyEdit(r,'PRICESEL',v);edLog(r,'PRICESEL',v);}
+        else if(k==='precio 1'){applyEdit(r,'PRICESEL',v);edLog(r,'PRICESEL',v);r._psrc='Cargado de la plantilla trabajada '+fl.name;}
         else{applyEdit(r,k,v);edLog(r,k,v);}
         n++;por[k]=(por[k]||0)+1;}
       // el color que viene en la plantilla ya fue revisado por Joel
