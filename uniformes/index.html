@@ -105,7 +105,7 @@ td input{padding:3px 6px;font-size:13px;width:80px}
   <div id="c_art" hidden>
     <div class="tw"><table><thead><tr><th>Código</th><th>Referencia</th><th>Descripción</th><th>Color</th><th>Talla</th><th class="r">Precio venta</th></tr></thead><tbody id="c_artb"></tbody></table></div>
     <div class="grid" style="margin-top:12px">
-      <label class="f">Precio de venta sin ITBMS (B/.)<input id="c_precio" type="number" step="0.01" min="0" readonly tabindex="-1"></label>
+      <label class="f">Precio de venta (B/.)<input id="c_precio" type="number" step="0.01" min="0" readonly tabindex="-1"></label>
       <label class="f">Descuento vigente del artículo (%)<input id="c_desc" type="number" step="1" min="0" max="100" value="0" readonly tabindex="-1"></label>
     </div>
     <div class="note" id="c_pnote"></div>
@@ -119,7 +119,7 @@ td input{padding:3px 6px;font-size:13px;width:80px}
     <label class="f">Frecuencia<select id="c_frec"><option value="Q">Quincenal (15 y 30)</option><option value="M">Mensual</option></select></label>
   </div>
   <div class="strip" id="c_calc"></div>
-  <p class="note">La empresa aporta B/.50.00 fijos por el par de zapatillas. El resto, con ITBMS, lo paga el colaborador por pagaré.</p>
+  <p class="note">La empresa aporta B/.50.00 fijos por el par de zapatillas. El resto lo paga el colaborador por pagaré. La entrega de calzado de uniforme no lleva ITBMS.</p>
   <div class="tw" style="margin-top:12px"><table><thead><tr><th>Cuota</th><th>Fecha</th><th class="r">Monto</th></tr></thead><tbody id="c_cuotas"></tbody></table></div>
   <div class="warn" id="c_warn"></div>
   <div class="bar"><span class="sp"></span><button class="sec" id="c_reset">Limpiar</button><button id="c_emit" disabled>Emitir pagaré</button></div>
@@ -157,8 +157,8 @@ const MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','
 
 // ---------- almacenamiento local (try/catch: puede no haber) ----------
 const store={get(k,d){try{const v=localStorage.getItem('unif.'+k);return v==null?d:JSON.parse(v);}catch(e){return d;}},set(k,v){try{localStorage.setItem('unif.'+k,JSON.stringify(v));}catch(e){}}};
-// Fijos: la empresa aporta B/.50 por el par de zapatillas; ITBMS 7%; los precios de las listas de ICG vienen sin ITBMS
-const CFG={aporte:50,itbms:7};
+// Fijos: la empresa aporta B/.50 por el par de zapatillas. La entrega de calzado de uniforme NO lleva ITBMS (Joel, 12-nov-2026)
+const CFG={aporte:50};
 
 // carpeta: lista.json en GitHub, o el servidor del lanzador en local
 let PUB;
@@ -244,16 +244,16 @@ function cuotas(total){
 }
 function calzadoCalc(){
   const a=C.art;if(!a)return null;
-  const precio=r2(+$('c_precio').value||0),desc=Math.min(100,Math.max(0,+$('c_desc').value||0)),iv=CFG.itbms/100;
+  const precio=r2(+$('c_precio').value||0),desc=Math.min(100,Math.max(0,+$('c_desc').value||0));
   const base=precio;
-  const neto=r2(base*(1-desc/100)),itbms=r2(neto*iv),total=r2(neto+itbms),aporte=Math.min(total,r2(CFG.aporte)),pagare=r2(total-aporte);
-  return {precio:base,desc,neto,itbms,total,aporte,pagare};
+  const neto=r2(base*(1-desc/100)),total=neto,aporte=Math.min(total,r2(CFG.aporte)),pagare=r2(total-aporte);
+  return {precio:base,desc,neto,total,aporte,pagare};
 }
 function calzadoRender(){
   const k=calzadoCalc(),warn=[];
   if(!k){$('c_calc').innerHTML='';$('c_cuotas').innerHTML='';$('c_warn').textContent='';$('c_emit').disabled=true;return;}
   const {arr,rest}=cuotas(k.pagare),f=fechasCuotas($('c_inicio').value||proximaQuincena(),arr.length,$('c_frec').value);
-  $('c_calc').innerHTML=[['Precio venta',k.precio],['Con descuento '+k.desc+'%',k.neto],['ITBMS '+CFG.itbms+'%',k.itbms],['Total',k.total],['Aporte empresa',-k.aporte]].map(([t,v])=>'<div><strong>'+money(v)+'</strong><span>'+t+'</span></div>').join('')+'<div class="key"><strong>'+money(k.pagare)+'</strong><span>Pagaré</span></div>';
+  $('c_calc').innerHTML=[['Precio venta',k.precio],['Con descuento '+k.desc+'%',k.neto],['Aporte empresa',-k.aporte]].map(([t,v])=>'<div><strong>'+money(v)+'</strong><span>'+t+'</span></div>').join('')+'<div class="key"><strong>'+money(k.pagare)+'</strong><span>Pagaré</span></div>';
   $('c_cuotas').innerHTML=arr.map((m,i)=>'<tr><td>'+(i+1)+'</td><td>'+fLarga(f[i])+'</td><td class="r">'+money(m)+'</td></tr>').join('');
   if(+$('c_ncuotas').value!==arr.length)warn.push('Con cuotas de '+money(+$('c_vcuota').value)+' el pagaré se paga en '+arr.length+' cuota(s).');
   if(rest>0.004)warn.push('Con '+$('c_ncuotas').value+' cuotas de '+money(+$('c_vcuota').value)+' faltan '+money(rest)+'. Sube el valor de la cuota o el número de cuotas.');
@@ -299,7 +299,7 @@ $('c_emit').onclick=()=>{
   const a=C.art,k=calzadoCalc(),{arr}=cuotas(k.pagare),f=fechasCuotas($('c_inicio').value||proximaQuincena(),arr.length,$('c_frec').value);
   const tc=tiendaDe($('c_tienda').value),rec={num:nextNum(tc.code),tipo:'CALZADO',fecha:hoyISO(),tienda:tc.name,almacen:tc.code,tarifa:tc.tarifa,
     col:{nombre:$('c_nombre').value.trim().toUpperCase(),cedula:N($('c_cedula').value).replace(/\s/g,''),cargo:$('c_cargo').value.trim(),domicilio:$('c_domicilio').value.trim()},
-    lineas:[{cb:a.cb,ref:a.ref,desc:a.desc,color:a.color,talla:a.talla,cant:1,unit:k.precio,dto:k.desc,neto:k.neto,itbms:k.itbms,total:k.total}],
+    lineas:[{cb:a.cb,ref:a.ref,desc:a.desc,color:a.color,talla:a.talla,cant:1,unit:k.precio,dto:k.desc,neto:k.neto,total:k.total}],
     pagare:{monto:k.pagare,aporte:k.aporte,cuotas:arr.map((m,i)=>({n:i+1,fecha:f[i],monto:m})),frec:$('c_frec').value},creado:new Date().toISOString()};
   emitir(rec);calzadoReset();
 };
@@ -361,8 +361,8 @@ function bajarExcel(rec){
   const head=[[rec.tipo==='CALZADO'?'SALIDA DE CALZADO PARA UNIFORME (CON PAGARÉ)':'SALIDA DE UNIFORME A COSTE'],[],
     ['Nº documento',rec.num],['Fecha',fLarga(rec.fecha)],['Almacén del albarán',rec.almacen?rec.almacen+' · '+(rec.almacenNombre||rec.tienda):''],...(rec.tarifa?[['Tarifa',TARIFA[rec.tarifa]||rec.tarifa]]:[]),['Tienda del colaborador',rec.tienda],['Colaborador',rec.col.nombre],['Cédula',rec.col.cedula],
     ...(rec.entregadoPor?[['Entregado por',rec.entregadoPor]]:[]),[],
-    rec.tipo==='CALZADO'?['Cód. Barras','Referencia','Descripción','Color','Talla','Cantidad','Precio venta','Desc. %','Subtotal sin ITBMS','ITBMS','Total']:['Cód. Barras','Referencia','Descripción','Color','Talla','Cantidad','Coste unitario','Total']];
-  const body=ln.map(l=>rec.tipo==='CALZADO'?[l.cb,l.ref,l.desc,l.color,l.talla,l.cant,l.unit,l.dto,l.neto,l.itbms,l.total]:[l.cb,l.ref,l.desc,l.color,l.talla,l.cant,l.unit==null?'FALTA':l.unit,l.total==null?'':l.total]);
+    rec.tipo==='CALZADO'?['Cód. Barras','Referencia','Descripción','Color','Talla','Cantidad','Precio venta','Desc. %','Precio neto']:['Cód. Barras','Referencia','Descripción','Color','Talla','Cantidad','Coste unitario','Total']];
+  const body=ln.map(l=>rec.tipo==='CALZADO'?[l.cb,l.ref,l.desc,l.color,l.talla,l.cant,l.unit,l.dto,l.neto]:[l.cb,l.ref,l.desc,l.color,l.talla,l.cant,l.unit==null?'FALTA':l.unit,l.total==null?'':l.total]);
   const foot=rec.tipo==='CALZADO'?[[],['Aporte de la empresa',rec.pagare.aporte],['Monto del pagaré',rec.pagare.monto],['Cuotas',rec.pagare.cuotas.map(c=>fLarga(c.fecha)+': '+c.monto.toFixed(2)).join(' · ')]]
     :[[],['Unidades',ln.reduce((s,l)=>s+l.cant,0)],['Total a coste',r2(ln.reduce((s,l)=>s+(l.total||0),0))]];
   const ws=XLSX.utils.aoa_to_sheet(head.concat(body,foot));ws['!cols']=[{wch:16},{wch:16},{wch:34},{wch:12},{wch:7},{wch:9},{wch:12},{wch:9},{wch:16},{wch:9},{wch:10}];
@@ -383,8 +383,8 @@ function imprimir(rec){
       '<p class="lin">Nombre: ____________________________________</p><p class="lin">Firma: _____________________________________</p><p class="lin">Cédula: ____________________________________</p>'+
       '<p class="meta" style="margin-top:28px">Artículo: '+esc(l.ref)+' · '+esc(l.color)+' · talla '+esc(l.talla)+' · código '+esc(l.cb)+'</p></div>';
     h+='<div class="page"><h2>FORMULARIO DE SOLICITUD DE CALZADO PARA UNIFORME</h2><p class="meta">TIENDA: '+tienda+(rec.almacen?' (almacén '+esc(rec.almacen)+')':'')+'<br>FECHA: '+hoy+'<br>Nº: '+esc(rec.num)+'</p>'+
-      '<table><tr><th>Colaborador</th><th>Cédula</th><th>Referencia</th><th>Color</th><th>Talla</th><th>Precio venta</th><th>Desc.</th><th>Precio neto sin ITBMS</th><th>ITBMS</th><th>Total</th><th>Aporte empresa</th><th>Monto pagaré</th></tr>'+
-      '<tr><td>'+esc(c.nombre)+'</td><td>'+esc(c.cedula)+'</td><td>'+esc(l.ref)+'</td><td>'+esc(l.color)+'</td><td>'+esc(l.talla)+'</td><td>'+money(l.unit)+'</td><td>'+l.dto+'%</td><td>'+money(l.neto)+'</td><td>'+money(l.itbms)+'</td><td>'+money(l.total)+'</td><td>'+money(p.aporte)+'</td><td><b>'+money(p.monto)+'</b></td></tr></table>'+
+      '<table><tr><th>Colaborador</th><th>Cédula</th><th>Referencia</th><th>Color</th><th>Talla</th><th>Precio venta</th><th>Desc.</th><th>Precio neto</th><th>Aporte empresa</th><th>Monto pagaré</th></tr>'+
+      '<tr><td>'+esc(c.nombre)+'</td><td>'+esc(c.cedula)+'</td><td>'+esc(l.ref)+'</td><td>'+esc(l.color)+'</td><td>'+esc(l.talla)+'</td><td>'+money(l.unit)+'</td><td>'+l.dto+'%</td><td>'+money(l.neto)+'</td><td>'+money(p.aporte)+'</td><td><b>'+money(p.monto)+'</b></td></tr></table>'+
       '<table><tr><th>Cuota</th><th>Fecha</th><th>Monto</th></tr>'+cu.map(x=>'<tr><td>'+x.n+'</td><td>'+fLarga(x.fecha)+'</td><td>'+money(x.monto)+'</td></tr>').join('')+'</table>'+
       '<div class="firmas"><div>Gerente de Operaciones</div><div>Encargado de Tienda</div><div>Colaborador</div></div></div>';
   }else{
