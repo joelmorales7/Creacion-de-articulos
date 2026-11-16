@@ -15,6 +15,7 @@ h2{font-size:17px;margin:0 0 12px}
 p.sub{margin:0 0 24px;color:var(--mut);max-width:75ch}
 section{background:var(--pn);border:1px solid var(--ln);border-radius:6px;padding:20px;margin-bottom:20px}
 .slots{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+[hidden]{display:none!important}
 .slot{border:1.5px dashed var(--ln);border-radius:6px;padding:14px;cursor:pointer;display:block}
 .slot:hover,.slot.over{border-color:var(--ac);background:var(--acs)}
 .slot.ok{border-style:solid;border-color:var(--ok)}
@@ -67,18 +68,20 @@ h3{font-size:15px;margin:20px 0 6px}
 <p class="sub">Carga la lista de empaque del proveedor (multimarca o despacho New Balance) y la data de ICG. La herramienta detecta qué códigos de barras no existen en tu sistema, separa marca y temporada, limpia corridas y tallas de la referencia, y arma la plantilla de creación con el árbol de códigos ya incluido. Todo se procesa en tu navegador; los archivos no se suben a ningún servidor.</p>
 
 <section>
-<h2>1. Carga los archivos</h2>
+<h2>1. Adjunta la lista de empaque</h2>
 <div class="slots">
  <label class="slot" id="s_prov"><b>Lista de empaque / despacho del proveedor</b><small>Multimarca: columnas Marca, Referencia, Codigo Barras, Corrida, Talla, Modelo, Genero, Color, MSRP. También acepta el despacho NB (REFERENCIA PADRE, Grupo, Linea…).</small><span class="st">Sin cargar</span><input type="file" accept=".xlsx,.xlsm,.xls,.csv"></label>
- <label class="slot" id="s_icg"><b>Data de ICG (uno o varios archivos)</b><small>Selecciona todos los DATA *.xls a la vez (NB, HOKA, ASICS…). Columnas Referencia y Cód. Barras / COD BARRAS.</small><span class="st">Sin cargar</span><input type="file" multiple accept=".xlsx,.xlsm,.xls,.csv"></label>
- <label class="slot" id="s_pre"><b>Data de precompra (opcional)</b><small>Formatos de pre-compra del fabricante (STYLE, STYLE NAME, RETAIL/MSRP, categoría…). Completan precio, modelo, temporada y categoría.</small><span class="st">Sin cargar</span><input type="file" multiple accept=".xlsx,.xlsm,.xls,.xlsb"></label>
+ <label class="slot" id="s_icg" hidden><b>Data de ICG (uno o varios archivos)</b><small>Selecciona todos los DATA *.xls a la vez (NB, HOKA, ASICS…). Columnas Referencia y Cód. Barras / COD BARRAS.</small><span class="st">Sin cargar</span><input type="file" multiple accept=".xlsx,.xlsm,.xls,.csv"></label>
+ <label class="slot" id="s_icgp" hidden><b>Precios de ICG (opcional)</b><small>Listas de precios exportadas de ICG (PRECIOS NB, HOKA…). Para que una referencia nueva tenga el mismo precio que su familia ya creada.</small><span class="st">Sin cargar</span><input type="file" multiple accept=".xlsx,.xlsm,.xls"></label>
+ <label class="slot" id="s_pre" hidden><b>Data de precompra (opcional)</b><small>Formatos de pre-compra del fabricante (STYLE, STYLE NAME, RETAIL/MSRP, categoría…). Completan precio, modelo, temporada y categoría.</small><span class="st">Sin cargar</span><input type="file" multiple accept=".xlsx,.xlsm,.xls,.xlsb"></label>
 </div>
+<p class="note" id="ready" style="margin:8px 0 0">⏳ Cargando la data de ICG, espera un momento…</p>
 <div class="opts">
  <label class="f">Qué crear<select id="crear"><option value="">SKU nuevos y tallas nuevas</option><option value="SKU NUEVO">Solo SKU nuevos</option><option value="TALLA NUEVA">Solo tallas nuevas</option></select></label>
  <label class="f">Temporada (si el archivo no la indica)<select id="temp"></select></label>
  <button id="go" disabled>Analizar</button>
 </div>
-<p class="note" id="treeinfo">Árbol de códigos: incluido en la herramienta.</p>
+<p class="note" id="treeinfo" hidden>Árbol de códigos: incluido en la herramienta.</p>
 <div class="err" id="err"></div>
 </section>
 
@@ -129,9 +132,17 @@ SYN.TSHRT=SYN.TSHIRT;
 const EN={SOCKS:'MEDIAS',SOCK:'MEDIAS',HEADWEAR:'GORRAS',HAT:'GORRAS',HATS:'GORRAS',CAP:'GORRAS',BAG:'BOLSOS',BACKPACK:'MOCHILAS',GLOVES:'GUANTES',BELT:'CINTURON'};
 const SZ={SM:'S',MD:'M',LG:'L'};
 
-// Otros nombres con que llega un modelo que ya existe como línea en ICG (marca → nombre del proveedor → código de línea).
-// Confirmados por Joel: el TXT de la plantilla sigue mostrando el nombre oficial de la línea.
-const LIN_ALIAS={HOKA:{'CIELO X1':40},OOFOS:{'5078':8,'5088':8,'5078 OOMY ZEN':8,'5088 OOMY ZEN':8}};
+// ===== CÓDIGOS CREADOS EN ICG QUE NO ESTÁN EN EL ÁRBOL INCLUIDO (TREE) =====
+// Aquí se guardan las líneas nuevas que Joel va creando y los otros nombres con que llega un modelo que ya existe
+// (marca → nombre del modelo/línea → código de línea). El TXT de la plantilla sigue mostrando el nombre oficial de la línea.
+// Departamento/sección/familia/subfamilia/marca: los códigos están en TREE (copia del árbol de ICG, más arriba).
+// Si se pone en la carpeta un archivo ARBOL*.xlsx (hoja _lookup) exportado de ICG, reemplaza a TREE, y estos se suman encima.
+const LIN_ALIAS={
+  HOKA:{'CIELO X1':40},
+  OOFOS:{'5078':8,'5088':8,'5078 OOMY ZEN':8,'5088 OOMY ZEN':8,'OOMY ZEN':8,'1500 ORIGINAL':11},
+  'NEW BALANCE':{'9060':496,'950':1085,'983':1088,'REBEL TRAIL':1086,'SC REBEL':1087,'SUPER COMP REBEL':1087},   // 06/11/2026 (Joel)
+  ASICS:{'SLOWCUSH':78,'GEL SLOWCUSH':78,'BLAZEBLAST':75,'BLOOMSTRIDE':79}             // en DATA ICG la línea 78 se llama SLOWCUSH
+};
 // Referencias que el proveedor manda sin modelo: [marca, referencia, {modelo, línea existente | línea nueva a crear}] (decisiones de Joel)
 // Modelos de trail aunque el proveedor no lo diga (decisión de Joel, plantilla del 19/10/2026)
 const TRAIL_MODEL={HOKA:/ (CHALLENGER|MAFATE|SPEEDGOAT|TECTON|STINSON|TORRENT|ZINAL) /};
@@ -141,7 +152,7 @@ const REF_HINT=[
   ['CIELE',/^03(60|61|63|78)-/,{model:'GOCap',rev:1}],   // gorras sin modelo en la lista (solo dicen "Gorra"): GOCap, como las dejó Joel; queda por revisar
   ['OOFOS',/^5087/,{model:'5087 Oomy Stride',line:12}]    // OOmy Stride (tenis de hombre): línea 12 creada por Joel en ICG
 ];
-function buildTree(S){const T={};for(const k in S){T[k]={};for(const n in S[k])T[k][N(n)]=S[k][n];}
+function buildTree(S){const T={};for(const k in S){T[k]={};for(const n in S[k])T[k][N(n).replace(/\s*\|\s*/g,'|')]=S[k][n];}   // "73| OOMY ZEN" -> "73|OOMY ZEN"
   for(const b in LIN_ALIAS){const mc=T.marca&&T.marca[b];if(mc==null)continue;
     for(const n in LIN_ALIAS[b]){const k=mc+'|'+N(n);if(!(k in T.lin))T.lin[k]=LIN_ALIAS[b][n];}}
   return T;}
@@ -165,6 +176,43 @@ function linList(T,mc){
   T._ll=T._ll||{};
   return T._ll[mc]||(T._ll[mc]=keys(T.lin,mc+'|').map(([n,c])=>[clean(n),c]).filter(x=>x[0]).sort((a,b)=>b[0].length-a[0].length));
 }
+// Estilo de una referencia: U9060ZGB -> U9060, T4040TG8-D -> T4040 (sin ancho), 1127895-BBLC -> 1127895, 1011B021.001 -> 1011B021
+const styleKey=ref=>{const s=N(ref).replace(/-(2A|B|D|2E|4E|6E|E|P|G|M|W)$/,''),p=s.split(/[-. \/]/);return p.length>1?p[0]:(s.match(/^[A-Z]*\d+/)||[''])[0];};
+// Árbol que ICG ya usa para ese estilo (TS de icgLearn): manda sobre lo que dice el archivo (ej. 4040 = HOMBRE - ZAPATILLAS - BASEBALL)
+function styleTree(T,brand,ref,ts){
+  const v=ts&&ts[brand+'|'+styleKey(ref)];if(!v)return null;
+  const [D,Sn,F,SB,L]=JSON.parse(v),d=T.dept[D],s=d!=null?T.sec[d+'|'+Sn]:null;if(s==null)return null;
+  const f=T.fam[d+'|'+s+'|'+F],sb=f!=null&&SB?T.sub[d+'|'+s+'|'+f+'|'+SB]:null,mc=T.marca[brand];
+  const l=mc!=null&&L?(linList(T,mc).find(z=>z[0]===clean(L))||[])[1]:null;
+  return {k:d===T.dept['ACCESORIOS']?'acc':kindOfSec(Sn),d,s,f,sb,l,txt:[D,Sn,F,SB,L].filter(Boolean).join(' - ')};
+}
+function useStyleTree(r,ts){
+  if(!ts)return;const set=(k,v)=>{r[k]=v;if(r._f)delete r._f[k];if(r._miss)delete r._miss[k];};
+  set('Departamento',ts.d);set('Seccion',ts.s);if(ts.f!=null){set('Familia',ts.f);set('subfamilia',ts.sb??0);}
+  if(ts.l!=null)set('linea',ts.l);
+  r['descripcion adiciona']=ts.k==='foot'?'ZAPATILLAS':ts.k==='app'?'ROPA':'ACCESORIOS';r._tsrc='Árbol copiado de ICG (mismo estilo): '+ts.txt;
+}
+// Línea ya creada en ICG: 1) el modelo nombra la línea; 2) la línea que ICG ya usa para ese estilo (rl, de la DATA ICG);
+// 3) el modelo con prefijo/sufijo de NB (U9060 / ML9060ZGB / 1080V14 -> 9060 / 1080)
+function findLine(T,mc,brand,model,ref,rl){
+  const L=linList(T,mc),m=' '+clean(model)+' ';
+  let h=L.find(z=>m.includes(' '+z[0]+' '));if(h)return h;
+  const n=rl&&rl[brand+'|'+styleKey(ref)];if(n&&(h=L.find(z=>z[0]===n)))return h;
+  const v=' '+clean(model).split(' ').map(t=>t.replace(/^[A-Z]{1,3}(?=\d{3})/,'').replace(/^(\d{3,4})V?\d*[A-Z]*$/,'$1')).join(' ')+' ';
+  return L.find(z=>v.includes(' '+z[0]+' '))||null;
+}
+// Aprendido de la DATA ICG: familia de calzado más usada por marca + línea (LF) y línea más usada por marca + estilo (RL)
+function icgLearn(I){
+  const cf={},cl={},ct={},am=c=>{const o={};for(const k in c)o[k]=argmax(c[k]);return o;};
+  for(const o of I){const b=N(o['MARCA']);if(!b)continue;const s=styleKey(o['REFERENCIA']);
+    if(s&&o['DEPARTAMENTO']&&o['SECCION']){const k=b+'|'+s,t=JSON.stringify(['DEPARTAMENTO','SECCION','FAMILIA','SUBFAMILIA','LINEA'].map(f=>N(o[f])));(ct[k]=ct[k]||{})[t]=(ct[k][t]||0)+1;}
+    const l=clean(o['LINEA']);if(!l)continue;
+    if(N(o['SECCION'])==='ZAPATILLAS'&&o['FAMILIA']){const k=b+'|'+l,f=N(o['FAMILIA']);(cf[k]=cf[k]||{})[f]=(cf[k][f]||0)+1;}
+    if(s){const k=b+'|'+s;(cl[k]=cl[k]||{})[l]=(cl[k][l]||0)+1;}}
+  return {LF:am(cf),RL:am(cl),TS:am(ct)};
+}
+// Tacos: familia SOCCER (HOMBRE - ZAPATILLAS - SOCCER = 1-1-4, regla de Joel)
+const SOCCER_RE=/ (SOCCER|FUTBOL|FOOTBALL|TACOS?|CLEATS?|FG|SG|AG|TF|IC|FURON|TEKELA|442|AUDAZO) /;
 
 /* ---------- Despacho New Balance (formato original) ---------- */
 // Descripción = MARCA + GÉNERO + MODELO (formato más usado en ICG: Mens / Womens / Unisex / Kids).
@@ -181,14 +229,21 @@ function descr(p,foot,g,marca,acc,ST){
 }
 function mk(p,b,tipo,T,o){
   const cat=N(p['CATEGORIA']),gen=N(p['GENERO']),fl={};
-  const foot=/FOOT|CALZ/.test(cat),app=/APPAREL|ROPA/.test(cat),acc=!foot&&!app;
+  let foot=/FOOT|CALZ/.test(cat),app=/APPAREL|ROPA/.test(cat),acc=!foot&&!app;
   const kid=/GIRL|BOY|KID|YOUTH|JUNIOR|INFANT|TODDLER|NINO/.test(gen);
   const g0=kid?'Kids':/^WOM|MUJER/.test(gen)?'Women':/^MEN|HOMBRE/.test(gen)?'Men':/UNISEX/.test(gen)?'Unisex':String(p['GENERO']||'');
-  const ref=String(p['REFERENCIA PADRE']||'').trim();
+  const ref=dropRunSize(String(p['REFERENCIA PADRE']||'').trim());
+  const ts=styleTree(T,N(o.marca),ref,o.ts);if(ts){foot=ts.k==='foot';app=ts.k==='app';acc=ts.k==='acc';}   // el tipo que ICG ya tiene para el estilo
   const uni=foot&&/^U\d/i.test(ref),g=uni?'Unisex':g0;
   const dept=acc?T.dept['ACCESORIOS']:g0==='Men'?T.dept['HOMBRE']:g0==='Women'?T.dept['MUJER']:g0==='Kids'?T.dept['NINOS']:undefined;
   const sec=foot?T.sec[dept+'|ZAPATILLAS']:app?T.sec[dept+'|ROPA']:secAcc(p,T,dept);
-  let fam=T.fam[dept+'|'+sec+'|'+N(p['LINEA'])];
+  const mc=T.marca[N(o.marca)];
+  const h=foot&&mc!=null?findLine(T,mc,N(o.marca),p['MODELO'],ref,o.rl):null;
+  let famN=N(p['LINEA']);
+  if(foot&&SOCCER_RE.test(' '+clean(p['LINEA']+' '+p['MODELO']+' '+(p['GRUPO']||''))+' '))famN='SOCCER';
+  let fam=T.fam[dept+'|'+sec+'|'+famN];
+  // la familia que ICG ya usa para esa línea (9060 -> LIFESTYLE, FURON -> SOCCER) si la del archivo no existe en el árbol
+  if(fam==null&&foot&&h&&o.lf){const fn=o.lf[N(o.marca)+'|'+h[0]],c=fn?T.fam[dept+'|'+sec+'|'+fn]:null;if(c!=null){fam=c;famN=fn;}}
   if(fam==null&&acc&&sec!=null)fam=1;
   if(fam!=null&&!foot)fl.Familia=1;
   const dsc=descr(p,foot,g,o.marca,acc,o.st);
@@ -201,16 +256,15 @@ function mk(p,b,tipo,T,o){
       for(const [n,c] of L){if((SYN[n]||[n]).some(k=>txt.includes(' '+clean(k)+' '))){sub=c;break;}}
     }
   }
-  const mc=T.marca[N(o.marca)];
   let lin=0;
-  if(foot){lin='';const m=' '+clean(p['MODELO'])+' ';const h=linList(T,mc).find(x=>m.includes(' '+x[0]+' '));if(h){lin=h[1];if(h[0]!==clean(p['MODELO']))fl.linea=1;}}
+  if(foot){lin='';if(h){lin=h[1];if(h[0]!==clean(p['MODELO']))fl.linea=1;}}
   let tl=talla(p['TALLA']);
   if(uni&&/^\d+(\.\d+)?$/.test(tl)){const n=parseFloat(tl);tl='H'+n+'|M'+(n+1.5);}
   const ms=parseFloat(p['MSRP']),pr=ms>0?+(ms-0.05).toFixed(2):'';
   // Ancho: sufijo de REFERENCIA PADRE (validado contra ICG); nunca la letra de corrida. Si no hay, D.
   const w=(ref.match(/-(2A|B|D|2E|4E|E|P|G|I|M|W)$/)||[])[1]||'D';
   const ms_={};if(dept==null)ms_.Departamento=g0||'(género sin dato)';if(sec==null)ms_.Seccion=String(p['DESCRIPCION']||p['GRUPO']||'');
-  if(fam==null)ms_.Familia=N(p['LINEA']);if(sub==='')ms_.subfamilia=String(p['GRUPO']||'');if(mc==null)ms_.marca=String(o.marca||p['MARCA']||'');
+  if(fam==null)ms_.Familia=famN;if(sub==='')ms_.subfamilia=String(p['GRUPO']||'');if(mc==null)ms_.marca=String(o.marca||p['MARCA']||'');
   if(lin===''&&mc!=null)ms_.linea=modelName(p['MODELO'],o.marca);
   return {'CREACION SI/NO':tipo,'Codigo Barras':Number(b),'Referencia':ref,'Talla':tl,'COLOR':color(p['COLOR']),'Descripcion':dsc,
     'Departamento':dept??'','Seccion':sec??'','Familia':fam??'','subfamilia':sub,'linea':lin,'marca':mc??'','pisada':foot?pisada(o.marca,p['MODELO']+' '+dsc):'','ancho':foot?w:'',_miss:ms_,
@@ -272,6 +326,8 @@ function oofosRef(num,col,max=13){   // 13 = 15 menos el "-M"/"-W"
   if(c2){r=num+c1+'/'+cAbr(c2);if(r.length<=max)return r;return (num+c1).slice(0,max-4)+'/'+cAbr(c2);}
   return r.slice(0,max);
 }
+// Talla que el proveedor pone como corrida aparte después del ancho (U90603VF-D-13 -> U90603VF-D): en ICG no se crean corridas
+const dropRunSize=e=>String(e).replace(/-(2A|B|D|2E|4E|6E|E)-\d{1,2}(\.5)?$/i,'-$1');
 function refMulti(e,brand){
   e=String(e==null?'':e).trim().replace(/\s+/g,' ');let m;
   if(brand==='ASICS'&&(m=e.match(/^([0-9A-Z]+\.\d{3})-?(.*)$/i)))return {ref:m[1],seg:m[2]};
@@ -279,6 +335,7 @@ function refMulti(e,brand){
   if(brand==='OOFOS'&&(m=e.match(/^(\d{4})\s*([^-]*?)\s*-\s*([MW])[A-Z]?\d?$/i)))return {ref:oofosRef(m[1],m[2]),seg:'',g:m[3].toUpperCase()};
   if(brand==='CIELE')e=e.replace(/^[A-Z]-\d-[A-Z]{2}-/i,'');
   if(brand==='ON'&&(m=e.match(/^([0-9][A-Z]{2}\d{8})-(.+)$/i)))return {ref:m[1],seg:m[2]};   // ON: 3MF10121043-9 / 2UF10050813-M (talla al final)
+  e=dropRunSize(e);
   let ref=e,seg='';const i=e.lastIndexOf('-');
   if(i>0){const s=e.slice(i+1),b=e.slice(0,i);if(SEG.test(s)&&(brand==='HYLO'||/[-.]/.test(b))){ref=b;seg=s;}}
   if(brand==='HYLO'&&(m=ref.match(/^([A-Z]{2}\d{2}[A-Z]{2})-?([A-Z]{2,4})$/i)))ref=m[1]+'-'+m[2];
@@ -384,7 +441,8 @@ function brandFirst(d,brand,kind){
   return (pre+' '+s).trim();
 }
 function mkMulti(p,b,T,x){
-  const fl={},brand=x.brand,mc=brand?T.marca[brand]:undefined,{foot,app,acc}=kind(p,x.cat),{gF,gX}=gender(p);
+  const fl={},brand=x.brand,mc=brand?T.marca[brand]:undefined,{gF,gX}=gender(p);let {foot,app,acc}=kind(p,x.cat);
+  const ts0=styleTree(T,brand,refMulti(p['REFERENCIA'],brand).ref,x.ts);if(ts0){foot=ts0.k==='foot';app=ts0.k==='app';acc=ts0.k==='acc';}   // el tipo que ICG ya tiene para el estilo
   const r=refMulti(p['REFERENCIA'],brand),traw=String(p['TALLA']==null?'':p['TALLA']).trim(),pr2=foot&&pairSize(traw);
   const pfx=r.ref.split(/[-.]/)[0];
   const uniInf=foot&&gX!=='Unisex'&&x.uni.has(brand+'|'+pfx);
@@ -403,7 +461,7 @@ function mkMulti(p,b,T,x){
   if(dept==null)ms_.Departamento=dName;
   if(foot){
     sec=T.sec[dept+'|ZAPATILLAS'];
-    const famN=/SANDALIA|SLIDE|FLIP|THONG/.test(txt)?'SANDALIAS':/\bTRAIL\b/.test(N((p['SUBCATEGORIA']||'')+' '+(p['FAMILIA']||'')+' '+model0+' '+(x.pv?x.pv.cat+' '+x.pv.sub:'')))||(TRAIL_MODEL[brand]&&TRAIL_MODEL[brand].test(' '+clean(model0)+' '))?'TRAIL':'RUNNING';
+    const famN=/SANDALIA|SLIDE|FLIP|THONG/.test(txt)?'SANDALIAS':/\bTRAIL\b/.test(N((p['SUBCATEGORIA']||'')+' '+(p['FAMILIA']||'')+' '+model0+' '+(x.pv?x.pv.cat+' '+x.pv.sub:'')))||(TRAIL_MODEL[brand]&&TRAIL_MODEL[brand].test(' '+clean(model0)+' '))?'TRAIL':SOCCER_RE.test(txt)?'SOCCER':'RUNNING';
     fam=T.fam[dept+'|'+sec+'|'+famN];if(fam==null){ms_.Familia=famN;fam=T.fam[dept+'|'+sec+'|RUNNING'];fl.Familia=1;}
   }else if(app){
     sec=T.sec[dept+'|ROPA'];fam=T.fam[dept+'|'+sec+'|RUNNING'];
@@ -420,7 +478,7 @@ function mkMulti(p,b,T,x){
   }
   if(hint.sub){const c=T.sub[dept+'|'+sec+'|'+fam+'|'+hint.sub];if(c!=null){sub=c;delete ms_.subfamilia;delete fl.subfamilia;}}
   let lin=0,h=null;
-  if(mc!=null){const L=linList(T,mc),m=' '+clean(model0)+' ';h=(hint.line!=null&&L.find(z=>z[1]===hint.line))||L.find(z=>m.includes(' '+z[0]+' '));
+  if(mc!=null){const L=linList(T,mc);h=(hint.line!=null&&L.find(z=>z[1]===hint.line))||findLine(T,mc,brand,model0,r.ref,x.rl);
     if(!h&&brand==='OOFOS'){const n=r.ref.slice(0,4);h=L.find(z=>z[0].split(' ')[0]===n);}
     if(h)lin=h[1];else if(foot){lin='';ms_.linea=hint.newLine||modelName(model0,brand)||(brand==='OOFOS'?r.ref.slice(0,4):'')||'(el proveedor no indica el modelo)';}}
   else ms_.marca=brand||x.raw||'(sin marca)';
@@ -487,6 +545,66 @@ function applyPrice(r,ms,pv,fmt){
   if(a!=null&&b!=null&&a!==b){setPrice(r,'');r._prices=[[b,'Precompra: '+pf+' (retail '+pp+')'],[a,'Lista de empaque (MSRP '+ms+')']];}
   else if(a==null&&b!=null){setPrice(r,b);r._psrc='Precompra: '+pf+' (retail '+pp+')';}
   else if(a!=null)r._psrc='Lista de empaque: MSRP '+ms+(b!=null?' (coincide con la precompra '+pf+')':'');
+}
+/* ---------- Precio ya creado en ICG para la misma familia ----------
+   Que un color nuevo no quede con otro precio que los colores que ya están en ICG (regla de Joel, 06/11/2026).
+   Familia: NB = letras + número del modelo (U9506I0-D -> U950, M10805MD-D -> M1080, MREBX4FH-D -> MREBX);
+   otras marcas = el código antes del color (1127895-BBLC -> 1127895, 1011B021.001 -> 1011B021).
+   Dentro de la familia mandan las referencias con la misma descripción (misma versión: Rebel v4 ≠ Rebel v5). */
+function famKey(ref,ln){
+  const s=N(ref).replace(/-(2A|B|D|2E|4E|6E|E|P|G|M|W)$/,''),p=s.split(/[-.]/);if(p.length>1)return p[0];
+  const m=s.match(/^([A-Z]+)(\d.*)?$/);if(!m)return s.split(' ')[0];
+  const L=m[1],rest=m[2]||'',d=(clean(ln||'').match(/^\d{3,4}$/)||[])[0];
+  if(d&&rest.startsWith(d))return L+d;
+  if(L.length<=2){const dd=rest.match(/^\d{3,4}/);return L+(dd?dd[0]:rest);}
+  return L;
+}
+const descKey=d=>clean(d).replace(/\b(NEW BALANCE|NB|MENS?|WOMENS?|MEN S|WOMEN S|S|UNISEX|KIDS?|FUELCELL|DE|HOMBRE|MUJER|NINOS?)\b/g,' ').replace(/\s+/g,' ').trim();
+// Listas de precios de ICG: fila de grupos "Precios de Venta: NEW BALANCE / RUNNING BALBOA", cada uno con Neto, Bruto, %Dto.
+// Se usa el Bruto (precio de etiqueta): tarifa NEW BALANCE para la marca New Balance, RUNNING BALBOA para las demás.
+function icgPriceIndex(wb,P){
+  let n=0;
+  for(const sn of wb.SheetNames){
+    const A=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:true});
+    const h=A.findIndex((r,i)=>i<20&&r.some(c=>N(c)==='BRUTO'));if(h<0)continue;
+    const H=A[h].map(N),up=A[h-1]||[],col=n=>H.indexOf(n),iR=col('REFERENCIA'),iD=col('DESCRIPCION'),iM=col('MARCA'),iL=col('LINEA');if(iR<0)continue;
+    const B={};let g='';H.forEach((k,i)=>{const t=N(up[i]);if(/PRECIO/.test(t))g=/NEW BALANCE/.test(t)?'NB':/RUNNING|BALBOA/.test(t)?'RB':'';if(k==='BRUTO')B[g||'*']=i;});
+    for(let j=h+1;j<A.length;j++){const r=A[j],ref=String(r[iR]||'').trim();if(!ref)continue;
+      const br=iM>=0?N(r[iM]):'',pick=br==='NEW BALANCE'?['NB','RB','*']:['RB','NB','*'];
+      let pr=0;for(const t of pick){const v=B[t]!=null?+r[B[t]]:0;if(v>0){pr=+v.toFixed(2);break;}}if(!pr)continue;
+      const k=N(ref);if(P.ref.has(k))continue;
+      const o={ref,desc:iD>=0?String(r[iD]||''):'',price:pr,brand:br};P.ref.set(k,o);n++;
+      const fk=br+'|'+famKey(ref,iL>=0?r[iL]:'');(P.fam.get(fk)||P.fam.set(fk,[]).get(fk)).push(o);}
+  }
+  return n;
+}
+// Compara cada fila con ICG: misma referencia (talla nueva) o misma familia. Si el precio no coincide, se elige en la tabla.
+function icgPriceCheck(rows,P,T){
+  if(!P||!P.ref.size)return;
+  const cache=new Map();
+  for(const r of rows){
+    const ln=(linList(T,r.marca).find(z=>z[1]===r.linea)||[])[0]||'',key=r.Referencia+'|'+r.Descripcion+'|'+ln;
+    let res=cache.get(key);
+    if(res===undefined){res=null;
+      const same=P.ref.get(N(r.Referencia));
+      if(same)res={opts:[[same.price,'ICG: misma referencia '+same.ref]],why:'misma referencia '+same.ref};
+      else{const fk=famKey(r.Referencia,ln),L=(P.fam.get((r.MARCA_N||'')+'|'+fk)||[]),dk=descKey(r.Descripcion),sd=L.filter(x=>descKey(x.desc)===dk),U=sd.length?sd:L;
+        if(U.length){const by=new Map();for(const x of U)(by.get(x.price)||by.set(x.price,[]).get(x.price)).push(x.ref);
+          const o=[...by.entries()].sort((a,b)=>b[1].length-a[1].length);
+          res={opts:o.map(([p,R])=>[p,'ICG: familia '+fk+' ('+R.slice(0,3).join(', ')+(R.length>3?' +'+(R.length-3):'')+')'+(sd.length?'':' — otra descripción, revisa si es otra versión')]),why:'familia '+fk+(sd.length?' con la misma descripción':'')};}}
+      cache.set(key,res);}
+    if(!res)continue;
+    r._icgp=res.why+': '+res.opts.map(o=>o[0]).join(' / ');
+    const cur=r['precio 1'],icg=res.opts.map(o=>o[0]);
+    if(r._prices){for(const o of res.opts)if(!r._prices.some(x=>x[0]===o[0]))r._prices.unshift(o);else r._prices.find(x=>x[0]===o[0])[1]+=' = '+o[1];continue;}
+    if(cur===''||cur==null){if(icg.length===1){setPrice(r,icg[0]);r._psrc=res.opts[0][1];}else{r._prices=res.opts.slice();}continue;}
+    const src=r._psrc||'Lista de empaque';
+    // igual al precio más usado de la familia en ICG: queda (si ICG ya tiene otros precios en la familia, se avisa)
+    if(icg[0]===cur){r._psrc=src+' · igual que ICG ('+res.why+')'+(icg.length>1?' — en ICG la familia también tiene '+icg.slice(1).join(' / '):'');continue;}
+    const o=res.opts.map(x=>x.slice()),j=o.findIndex(x=>x[0]===cur);
+    if(j>=0)o[j][1]+=' = '+src;else o.push([cur,src+' — distinto de ICG']);
+    r._prices=o;setPrice(r,'');
+  }
 }
 // Encabezados de la precompra (cada formato del fabricante los nombra distinto)
 // (ON trae el código en NOMBRE_MODELO y el nombre en CODIGO MODELO: se decide por el contenido, ver preventaIndex)
@@ -561,6 +679,7 @@ function runAnalysis(P,I,T,o){
   o=o||{};
   const {B,IR}=icgIndex(I),F=new Set(Object.keys(IR)),ST=learnStyles(I);   // ST: estilo de descripción por marca y tipo
   const multi=!('REFERENCIA PADRE' in (P[0]||{}));
+  const {LF,RL,TS}=icgLearn(I);   // LF: familia de calzado por marca + línea; RL: línea por marca + estilo (lo que ya está creado en ICG)
   const seen=new Set(),rows=[],sinCB=[];let existing=0,porCB3=0;
   // temporada faltante: tomarla de otra fila del archivo con la misma referencia
   // si no hay ninguna, queda la de la precompra (si el artículo está ahí) o la elegida en pantalla (seasonDef)
@@ -575,14 +694,14 @@ function runAnalysis(P,I,T,o){
   if(!multi){
     // despacho NB: la columna Marca trae la tienda; si no nombra una marca, el despacho es de New Balance
     const X=P.map(p=>{const x=rowMeta(p,T);if(!x.brand)x.brand='NEW BALANCE';return x;});
-    fillSeason(X,p=>N(p['REFERENCIA PADRE']||p['REFERENCIA PROVEEDOR']));
+    fillSeason(X,p=>N(dropRunSize(p['REFERENCIA PADRE']||p['REFERENCIA PROVEEDOR']||'')));
     P.forEach((p,i)=>{
       const b=dg(p['CODIGO BARRAS']);if(!b||seen.has(b))return;seen.add(b);
       if(B.has(b)){existing++;if(B.get(b)===8)porCB3++;return;}
-      const padre=N(p['REFERENCIA PADRE']||p['REFERENCIA PROVEEDOR']),g=IR[padre];
+      const padre=N(dropRunSize(p['REFERENCIA PADRE']||p['REFERENCIA PROVEEDOR']||'')),g=IR[padre];
       usePv(X[i],pvOf('#'+b,p['REFERENCIA PADRE'],p['REFERENCIA PROVEEDOR'],p['REFERENCIA']));
-      const r=mk(p,b,g?'TALLA NUEVA':'SKU NUEVO',T,{marca:X[i].brand,temporada:X[i].season,st:ST});r._cost=parseFloat(p['PRECIO']??p['COSTO'])||0;r._model=String(p['MODELO']||'').trim();
-      if(g)fromIcg(r,g,T);
+      const r=mk(p,b,g?'TALLA NUEVA':'SKU NUEVO',T,{marca:X[i].brand,temporada:X[i].season,st:ST,lf:LF,rl:RL,ts:TS});r._cost=parseFloat(p['PRECIO']??p['COSTO'])||0;r._model=String(p['MODELO']||'').trim();
+      if(g)fromIcg(r,g,T);else useStyleTree(r,styleTree(T,N(X[i].brand),r.Referencia,TS));
       applyPrice(r,parseFloat(p['MSRP']),X[i].pv,v=>+(v-0.05).toFixed(2));
       rows.push(r);
     });
@@ -599,7 +718,6 @@ function runAnalysis(P,I,T,o){
   // unisex inferido: misma raíz de referencia con filas de hombre y de mujer
   const GS={},MD={},uni=new Set();
   // LF: familia de calzado más usada en ICG por marca + línea (modelo)
-  const LF=(()=>{const c={};for(const o of I){if(N(o['SECCION'])!=='ZAPATILLAS'||!o['LINEA']||!o['FAMILIA'])continue;const k=N(o['MARCA'])+'|'+clean(o['LINEA']),f=N(o['FAMILIA']);(c[k]=c[k]||{})[f]=(c[k][f]||0)+1;}const o={};for(const k in c)o[k]=argmax(c[k]);return o;})();
   P.forEach((p,i)=>{const x=X[i],{foot}=kind(p,x.cat);const pf=x.brand+'|'+refMulti(p['REFERENCIA'],x.brand).ref.split(/[-.]/)[0];
     if(String(p['MODELO']||'').trim())MD[pf]=MD[pf]||String(p['MODELO']).trim();
     if(foot){const {gF,gX}=gender(p);const g=gF||gX;(GS[pf]=GS[pf]||new Set()).add(g);}});
@@ -620,7 +738,7 @@ function runAnalysis(P,I,T,o){
     if(seen.has(b))return;seen.add(b);
     if(B.has(b)){existing++;if(B.get(b)===8)porCB3++;return;}
     const rr=refMulti(p['REFERENCIA'],x.brand).ref;
-    x.uni=uni;x.st=ST;x.lf=LF;x.model=MD[x.brand+'|'+rr.split(/[-.]/)[0]];
+    x.uni=uni;x.st=ST;x.lf=LF;x.rl=RL;x.ts=TS;x.model=MD[x.brand+'|'+rr.split(/[-.]/)[0]];
     usePv(x,pvOf('#'+b,rr,p['REFERENCIA']));
     // OOFOS: si no está igual en ICG, buscar la misma referencia escrita a la manera vieja (5078 CHALK/BLAC)
     const r=mkMulti(p,b,T,x);let g=IR[N(r.Referencia)];
@@ -628,8 +746,8 @@ function runAnalysis(P,I,T,o){
     r._cost=parseFloat(p['PRECIO'])||0;r._model=String(p['MODELO']||'').trim();
     applyPrice(r,parseFloat(p['MSRP']),x.pv,v=>+(Math.round(v)-0.05).toFixed(2));
     r['CREACION SI/NO']=g?'TALLA NUEVA':'SKU NUEVO';
-    if(g)fromIcg(r,g,T);
-    else if(/[-.]/.test(r.Referencia)){   // SKU nuevo de un estilo que ya existe en ICG (otro color): se copia su descripción
+    if(g)fromIcg(r,g,T);else useStyleTree(r,styleTree(T,r.MARCA_N,r.Referencia,TS));
+    if(!g&&/[-.]/.test(r.Referencia)){   // SKU nuevo de un estilo que ya existe en ICG (otro color): se copia su descripción
       const st=N(r.Referencia.split(/[-.]/)[0]),m=SD[N(r.MARCA_N)+'|'+st];
       if(m){const d=[...m.entries()].sort((a,b)=>b[1]-a[1])[0][0];r.Descripcion=r['descripcion web']=d;delete r._f.Descripcion;r._dsrc='Copiada de ICG (mismo estilo '+st+')';}}
     else if(r.MARCA_N==='FEETURES'){const pf=(N(r.Referencia).match(/^[A-Z]+\d{2}/)||[])[0],g=pf&&FS[pf];
@@ -774,6 +892,10 @@ function slot(kind){
         for(const f of files){const buf=await f.arrayBuffer(),wb=XLSX.read(buf,{type:"array"});const mb=Object.keys(T.marca).find(m=>clean(f.name).includes(clean(m)))||'';n+=preventaIndex(wb,f.name,mb,PV,preventaPhotos(buf,wb.SheetNames));}
         if(!n)throw new Error('no se encontró una columna STYLE / STYLE-NUMBER en esos archivos');
         S.pv=PV;st.textContent='✓ '+files.length+' archivo(s), '+n.toLocaleString('es')+' estilos';}
+      else if(kind==='icgp'){const P={ref:new Map(),fam:new Map()};let n=0;
+        for(const f of files)n+=icgPriceIndex(XLSX.read(await f.arrayBuffer(),{type:'array'}),P);
+        if(!n)throw new Error('no se encontró una columna Bruto con Referencia (lista de precios de ICG)');
+        S.icgp=P;st.textContent='✓ '+files.length+' lista(s), '+n.toLocaleString('es')+' referencias con precio';}
       else{const all=[],mk=new Set();
         for(const f of files){const r=await readFile(f,'icg');r.forEach(o=>{all.push(o);if(o['MARCA'])mk.add(N(o['MARCA']));});}
         S.icg=all;st.textContent='✓ '+files.length+' archivo(s), '+all.length.toLocaleString('es')+' filas'+(mk.size?' · '+[...mk].sort().join(', '):'');}
@@ -786,12 +908,22 @@ function slot(kind){
   el.ondragleave=()=>el.classList.remove('over');
   el.ondrop=e=>{e.preventDefault();el.classList.remove('over');take(e.dataTransfer.files);};
 }
-slot('prov');slot('icg');slot('pre');
+slot('prov');slot('icg');slot('pre');slot('icgp');
 // Ruta relativa de la carpeta del proyecto -> URL (respeta las subcarpetas)
 const urlOf=name=>name.split('/').map(encodeURIComponent).join('/');
 // Recuadro que se llena solo desde la carpeta (con el lanzador): no admite carga manual
 function folderSlot(id,title,help){const el=$(id);el.querySelector('input').disabled=true;el.style.cursor='default';el.ondragover=el.ondrop=e=>e.preventDefault();
-  el.querySelector('b').textContent=title;el.querySelector('small').textContent=help;return el;}
+  el.querySelector('b').textContent=title;el.querySelector('small').textContent=help;
+  // lo que se toma solo de la carpeta no se muestra: queda un mensaje corto (el detalle al pasar el mouse)
+  el.hidden=true;AUTO.add(el);new MutationObserver(readyMsg).observe(el.querySelector('.st'),{childList:true,characterData:true,subtree:true});readyMsg();return el;}
+const AUTO=new Set();
+function readyMsg(){
+  const els=[...AUTO],m=$('ready'),name=e=>e.querySelector('b').textContent.replace(/\s*\(.*$/,'');m.hidden=!els.length;
+  const busy=els.filter(e=>/^Leyendo/.test(e.querySelector('.st').textContent)).concat(S.boot?[]:[null]),bad=els.filter(e=>!busy.includes(e)&&!e.classList.contains('ok'));
+  m.title=els.map(e=>name(e)+': '+e.querySelector('.st').innerText).concat($('treeinfo').textContent).join('\n\n');
+  m.className=bad.length?'err':'note';
+  m.textContent=busy.length?'⏳ Cargando la data de ICG, espera un momento…':bad.length?'⚠ No se pudo cargar: '+bad.map(name).join(', ')+' (pasa el mouse para ver el detalle)':'✓ Todo listo: data cargada. Solo adjunta la lista de empaque.';
+}
 const fileList=list=>'<br><span class="note">'+list.map(f=>esc(f.name.split('/').slice(1).join('/')||f.name)+' ('+esc(f.modified)+')').join(' · ')+'</span>';
 
 // Árbol actualizado: si en la carpeta hay un "LOGICA DE ARBOL…xlsm" con hoja _lookup, reemplaza al árbol incluido
@@ -824,9 +956,11 @@ async function fileBuf(name){
   const r=await fetch(urlOf(name),{cache:'no-store'});if(!r.ok)throw new Error('no se pudo leer '+name);return r.arrayBuffer();
 }
 (async()=>{
-  if(!/^https?:$/.test(location.protocol))return;
+  const show=id=>{$(id).hidden=false;};   // sin carpeta: se deja el recuadro para cargar a mano
+  if(!/^https?:$/.test(location.protocol)){["s_icg","s_icgp","s_pre"].forEach(show);$("ready").hidden=true;return;}
   await loadTreeFromFolder();
   const list=await getList('icg-files');
+  if(!(list&&list.length))show("s_icg");
   if(list&&list.length){
     const el=folderSlot('s_icg','Data de ICG (carpeta DATA ICG)','Se toma sola de los archivos DATA de la carpeta. Para actualizarla, reemplaza esos archivos y recarga la página.'),st=el.querySelector('.st');
     st.textContent='Leyendo '+list.length+' archivo(s) de la carpeta…';$('go').disabled=true;
@@ -838,7 +972,18 @@ async function fileBuf(name){
     }catch(e){S.icg=null;st.textContent='Sin cargar';$('err').textContent='Data ICG de la carpeta: '+e.message;}
     $('go').disabled=!(S.prov&&S.icg);
   }
+  const prl=await getList('precio-files');
+  if(!(prl&&prl.length))show("s_icgp");
+  if(prl&&prl.length){
+    const el=folderSlot('s_icgp','Precios de ICG (carpeta PRECIOS RETAL ICG)','Se toman solos de la carpeta. Una referencia nueva se compara con el precio de su familia ya creada en ICG.'),st=el.querySelector('.st');
+    st.textContent='Leyendo '+prl.length+' lista(s) de precios…';
+    S.icgpP=(async()=>{const P={ref:new Map(),fam:new Map()},errs=[];let n=0;
+      for(const f of prl){try{n+=icgPriceIndex(XLSX.read(await fileBuf(f.name),{type:'array'}),P);}catch(e){errs.push(f.name);}await new Promise(r=>setTimeout(r));}
+      S.icgp=P;if(n)el.classList.add('ok');
+      st.innerHTML=(n?'✓ ':'')+prl.length+' lista(s), '+n.toLocaleString('es')+' referencias con precio'+fileList(prl)+(errs.length?'<br><span class="err">No se pudo leer: '+esc(errs.join(', '))+'</span>':'');})();
+  }
   const pl=await getList('preventa-files');
+  if(!(pl&&pl.length))show("s_pre");
   if(pl&&pl.length){
     const el=folderSlot('s_pre','Data de precompra (carpeta PRECOMPRA)','Se toma sola de las subcarpetas por marca. Para agregar una marca o colección, pon sus archivos en PRECOMPRA\\MARCA y recarga la página.'),st=el.querySelector('.st');
     st.textContent='Leyendo '+pl.length+' archivo(s) de precompra…';
@@ -847,10 +992,13 @@ async function fileBuf(name){
     S.pv=PV;if(n)el.classList.add('ok');
     st.innerHTML=(n?'✓ ':'')+pl.length+' archivo(s), '+n.toLocaleString('es')+' estilos · '+esc([...mk].sort().join(', '))+fileList(pl)+(errs.length?'<br><span class="err">No se pudo leer: '+esc(errs.join(', '))+'</span>':'');
   }
+  S.boot=1;readyMsg();   // ya se pidió todo lo de la carpeta: el mensaje puede decir "listo"
 })();
 
-$('go').onclick=()=>{
+$('go').onclick=async()=>{
+  if(S.icgpP&&!S.icgp){$('go').disabled=true;$('go').textContent='Esperando los precios de ICG…';await S.icgpP;$('go').disabled=false;$('go').textContent='Analizar';}
   const r=runAnalysis(S.prov,S.icg,T,{temporada:$('temp').value,pv:S.pv});
+  icgPriceCheck(r.rows,S.icgp,T);   // mismo precio que la familia ya creada en ICG
   S.rows=r.rows;S.stats=r.stats;S.F=r.F;S.IR=r.IR;S.pool=r.pool||[];S.restored=0;edRestore();
   const ms=[...new Set(S.rows.map(r=>r.MARCA_N||''))].sort();
   $('fmarca').innerHTML='<option value="">Todas</option>'+ms.map(m=>'<option value="'+esc(m)+'">'+esc(m||'(sin marca)')+'</option>').join('');
@@ -974,7 +1122,7 @@ function colorCell(r,i){
 }
 // Precio: si la lista y la precompra no coinciden, Joel elige cuál usar
 function priceCell(r,i){
-  if(r._prices)return '<td'+(r['precio 1']===''?' class="bad"':'')+' title="La lista de empaque y la precompra traen precios distintos: elige uno"><select data-i="'+i+'" data-k="PRICESEL"><option value="">— elegir precio —</option>'+
+  if(r._prices)return '<td'+(r['precio 1']===''?' class="bad"':'')+' title="'+esc('Hay precios distintos: elige uno (se aplica a todas las tallas de la referencia).'+(r._icgp?'\nEn ICG ya existe: '+r._icgp+'. Para no tener la misma familia con precios distintos, usa el de ICG o cambia también los colores anteriores en ICG.':''))+'"><select data-i="'+i+'" data-k="PRICESEL"><option value="">— elegir precio —</option>'+
     r._prices.map(([v,s],j)=>'<option value="'+j+'"'+(v===r['precio 1']?' selected':'')+'>'+esc(v+' · '+s)+'</option>').join('')+'</select></td>';
   const p=r['precio 1'],src=r._psrc||'';
   const tip=p===''?'Falta el precio de venta: no viene MSRP en la lista de empaque ni precio en la precompra. Qué hacer: en "Informe de datos faltantes" (sección 2) hay un precio sugerido con el botón Usar, o agrega el formato de precompra de la marca en DATA PRECOMPRA.'
@@ -982,7 +1130,7 @@ function priceCell(r,i){
   return '<td'+(isBad(r,'precio 1')?' class="bad"':'')+' title="'+esc(tip)+'">'+esc(p)+(p!==''?'<br><span class="note" style="font-size:11px">'+esc(PSHORT(src))+'</span>':'<br><span class="note" style="font-size:11px">sin precio</span>')+'</td>';
 }
 // Origen del precio en corto, visible debajo del precio (el detalle está al pasar el mouse)
-const PSHORT=s=>/^Precompra/.test(s)?'precompra':/^Sugerido/.test(s)?'sugerido (parecidos)':/^Tomado de otra fila/.test(s)?'otra talla misma ref.':/^Elegido/.test(s)?'elegido por ti':/^Cargado/.test(s)?'plantilla trabajada':'MSRP lista';
+const PSHORT=s=>/^ICG/.test(s)?'precio ICG familia':/igual que ICG/.test(s)?'= ICG familia':/^Elegido por ti: ICG/.test(s)?'ICG (elegido)':/^Precompra/.test(s)?'precompra':/^Sugerido/.test(s)?'sugerido (parecidos)':/^Tomado de otra fila/.test(s)?'otra talla misma ref.':/^Elegido/.test(s)?'elegido por ti':/^Cargado/.test(s)?'plantilla trabajada':'MSRP lista';
 const PVLAB={season:'Temporada',ref:'Referencia',name:'Modelo',gender:'Género',color:'Color',cat:'Categoría',sub:'Subcategoría',type:'Tipo',price:'Precio retail',intro:'Lanzamiento',collection:'Colección',story:'Color story',campaign:'Campaña',marketing:'Marketing',project:'Tipo (CO/CU/New)',pillar:'Pilar',file:'Archivo',sheet:'Hoja'};
 function pvCell(r){
   const v=r._pv;if(!v)return '<td></td>';
@@ -998,12 +1146,12 @@ function render(){
     // ✓ junto a un campo en amarillo: "está bien así" (se aplica a todas las tallas de la referencia y sale de por revisar)
     const ok=(k,inner)=>canOk(r,k)?'<span style="display:flex;gap:4px">'+inner+'<button type="button" class="okc okf" data-i="'+i+'" data-k="'+k+'" title="'+esc(OKTIP[k]||'Está bien así')+'">✓</button></span>':inner;
     const inp=(k,cl,v)=>'<td'+c(k)+'>'+ok(k,'<input'+(cl?' class="'+cl+'"':'')+' data-i="'+i+'" data-k="'+k+'" value="'+esc(v===undefined?r[k]:v)+'">')+'</td>';
-    const sel=(k,pre)=>{const o=keys(T[k==='Familia'?'fam':'sub'],pre);
+    const sel=(k,pre)=>{const o=k==='Departamento'?Object.entries(T.dept):keys(T[{Seccion:'sec',Familia:'fam',subfamilia:'sub'}[k]],pre);
       return '<td'+c(k)+'>'+ok(k,'<select data-i="'+i+'" data-k="'+k+'"><option value=""></option>'+o.map(([n,v])=>'<option value="'+v+'"'+(v===r[k]?' selected':'')+'>'+esc(v+' · '+n)+'</option>').join('')+(o.length?'':'<option value="0"'+(r[k]===0?' selected':'')+'>0</option>')+'</select>')+'</td>';};
     const ln=keys(T.lin,r.marca+'|').find(x=>x[1]===r.linea);
     return '<tr><td><span class="tag'+(r['CREACION SI/NO']==='TALLA NUEVA'?' t':'')+'">'+esc(r['CREACION SI/NO'])+'</span></td><td class="code">'+r['Codigo Barras']+'</td>'+
       '<td'+c('Referencia')+' title="Proveedor: '+esc(r._prov)+(refLong(r)?' — más de '+REF_MAX+' caracteres: acórtala':'')+'">'+ok('Referencia','<input class="w" data-i="'+i+'" data-k="Referencia" value="'+esc(r.Referencia)+'">')+'</td>'+
-      inp('Talla')+colorCell(r,i)+inp('Descripcion','d').replace('<td','<td title="'+esc((descLong(r)?'Revisar: más de '+DESC_MAX+' caracteres (ICG acepta '+DESC_MAX+'; lo ideal es ~'+DESC_IDEAL+'). ':'')+(r._dsrc||'')+' — '+String(r.Descripcion||'').length+' caracteres')+'"')+photoCell(r)+'<td'+c('Departamento')+'>'+ok('Departamento',esc(r.Departamento))+'</td><td'+c('Seccion')+'>'+ok('Seccion',esc(r.Seccion))+'</td>'+
+      inp('Talla')+colorCell(r,i)+inp('Descripcion','d').replace('<td','<td title="'+esc((descLong(r)?'Revisar: más de '+DESC_MAX+' caracteres (ICG acepta '+DESC_MAX+'; lo ideal es ~'+DESC_IDEAL+'). ':'')+(r._dsrc||'')+' — '+String(r.Descripcion||'').length+' caracteres')+'"')+photoCell(r)+sel('Departamento','')+sel('Seccion',r.Departamento+'|')+
       sel('Familia',r.Departamento+'|'+r.Seccion+'|')+sel('subfamilia',r.Departamento+'|'+r.Seccion+'|'+r.Familia+'|')+
       '<td'+c('linea')+'>'+ok('linea','<input class="n" type="number" data-i="'+i+'" data-k="linea" value="'+esc(r.linea)+'" title="'+esc(ln?ln[0]:'')+'">')+'</td>'+
       '<td'+c('marca')+' title="'+(r.marca===''?'Esta marca no tiene código en el árbol: escribe una marca de la lista':'Código '+esc(r.marca))+'">'+ok('marca','<input class="w" list="dlmarcas" data-i="'+i+'" data-k="MARCA_N" value="'+esc(r.MARCA_N||'')+'">')+'</td>'+
@@ -1028,7 +1176,10 @@ function applyEdit(r,k,v){
       (x._ok=x._ok||{})[f]=1;if(x._f)delete x._f[f];if(x._miss)delete x._miss[f];}
     return;}
   if(k==='OKC'){for(const x of S.rows)if(x['CREACION SI/NO']==='SKU NUEVO'&&x.Referencia===r.Referencia&&x.COLOR===r.COLOR)x._colorOk=1;return;}
-  if(k==='PRICESEL'){setPrice(r,v);const o=r._prices&&r._prices.find(x=>x[0]===v);r._psrc=o?'Elegido por ti entre lista y precompra: '+o[1]:'Sugerido por artículos parecidos o cargado de una plantilla trabajada';return;}
+  if(k==='PRICESEL'){const o=r._prices&&r._prices.find(x=>x[0]===v),src=o?'Elegido por ti: '+o[1]:'Sugerido por artículos parecidos o cargado de una plantilla trabajada';
+    // el precio elegido vale para todas las tallas de la referencia que tienen la misma duda
+    for(const x of S.rows)if(x===r||(o&&x.Referencia===r.Referencia&&x['CREACION SI/NO']===r['CREACION SI/NO']&&x._prices&&x._prices.some(y=>y[0]===v))){setPrice(x,v);x._psrc=src;}
+    return;}
   if(k==='COLORSEL'){r.COLOR=v;if(r.COLOR!=='')delete r._f.COLOR;else r._f.COLOR=1;return;}
   if(k==='MARCA_N'){v=N(v);r.MARCA_N=v;r.marca=T.marca[v]??'';delete r._f.marca;if(r._miss&&r.marca!=='')delete r._miss.marca;}
   else{r[k]=v;if(r._f)delete r._f[k];if(r._miss&&v!==''&&v!==0)delete r._miss[k];}
@@ -1037,11 +1188,18 @@ function applyEdit(r,k,v){
   if(k==='Descripcion')r['descripcion web']=v;
   if(k==='Referencia'){r['SKU padre']=v;const g=S.IR[N(v)];
     if(g){r['CREACION SI/NO']='TALLA NUEVA';fromIcg(r,g,T);}else{r['CREACION SI/NO']='SKU NUEVO';delete r._lock;delete r._colors;}}
-  if(k==='Familia'){r.subfamilia='';}
+  // Árbol elegido a mano: se aplica a todas las tallas de la misma referencia; al cambiar un nivel se vacían los de abajo
+  const TREEK=['Departamento','Seccion','Familia','subfamilia'],ti=TREEK.indexOf(k);
+  if(ti>=0)for(const x of S.rows)if(x===r||(x['CREACION SI/NO']===r['CREACION SI/NO']&&x.Referencia===r.Referencia)){
+    x[k]=v;if(x._f)delete x._f[k];if(x._miss&&v!=='')delete x._miss[k];
+    for(const d of TREEK.slice(ti+1))x[d]='';
+    if(k==='Familia'&&v!==''&&!keys(T.sub,x.Departamento+'|'+x.Seccion+'|'+v+'|').length)x.subfamilia=0;   // familia sin subfamilias (calzado): 0
+    if(ti<2){const sn=(keys(T.sec,x.Departamento+'|').find(z=>z[1]===x.Seccion)||[])[0];   // ZAPATILLAS / ROPA / ACCESORIOS
+      if(sn)x['descripcion adiciona']=/^(ZAPATILLAS|ROPA)$/.test(sn)&&x.Departamento!==T.dept['ACCESORIOS']?sn:'ACCESORIOS';}}
 }
 $('tb').onchange=e=>{
   const el=e.target,r=S.rows[el.dataset.i],k=el.dataset.k;if(!r||!k)return;
-  let v=el.value;if(['Familia','subfamilia','linea'].includes(k))v=v===''?'':Number(v);
+  let v=el.value;if(['Departamento','Seccion','Familia','subfamilia','linea'].includes(k))v=v===''?'':Number(v);
   if(k==='PRICESEL')v=v===''?'':r._prices[+v][0];
   if(k==='COLORSEL')v=v===''?'':r._colors[+v][0];
   applyEdit(r,k,v);edLog(r,k,v);summary();render();
@@ -1100,7 +1258,9 @@ $('crear').onchange=()=>{$('ftipo').value=$('crear').value;if(S.rows.length){sum
 
 // Código -> texto del árbol (con los nombres originales, con tildes)
 const RV={};
-function buildRV(){for(const k in TREE){RV[k]={};for(const n in TREE[k]){const i=n.lastIndexOf('|'),pre=i<0?'':n.slice(0,i+1),key=pre+TREE[k][n];if(!(key in RV[k]))RV[k][key]=i<0?n:n.slice(i+1);}}}
+function buildRV(){for(const k in TREE){RV[k]={};for(const n in TREE[k]){const i=n.lastIndexOf('|'),pre=i<0?'':n.slice(0,i+1).replace(/\s+\|$/,'|'),key=pre+TREE[k][n];if(!(key in RV[k]))RV[k][key]=(i<0?n:n.slice(i+1)).trim();}}
+  // líneas creadas después del árbol incluido (LIN_ALIAS): el TXT muestra su nombre (el primero de la lista)
+  for(const b in LIN_ALIAS){const mc=TREE.marca[b];if(mc==null)continue;for(const n in LIN_ALIAS[b]){const key=mc+'|'+LIN_ALIAS[b][n];if(!(key in RV.lin))RV.lin[key]=n;}}}
 buildRV();
 const txt=(m,key)=>RV[m][key]??'';
 const TXT={Departamento:r=>txt('dept',r.Departamento),Seccion:r=>txt('sec',r.Departamento+'|'+r.Seccion),Familia:r=>txt('fam',r.Departamento+'|'+r.Seccion+'|'+r.Familia),
