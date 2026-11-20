@@ -18,11 +18,12 @@ const J = compactar(firmaDe(lists));
 // Promociones con fecha (tools/promos/*.json), p. ej. Black Friday. Mientras están vigentes (fecha de Panamá),
 // el %Dto de la tarifa se reemplaza por el de la promo, código por código. Al vencer, la corrida diaria
 // de la Action vuelve a armar datos.json con el descuento regular de la lista de ICG.
+// tools/promos/index.json lista los archivos para la APP (que también los aplica cuando corre con el lanzador del PC).
 // Formato: {"nombre":"...","tarifa":"NB","desde":"AAAA-MM-DD","hasta":"AAAA-MM-DD","dto":{"<cód. barras>":70,...},"bruto":{"<cód. barras>":99.95,...}}
 const hoy = new Date(Date.now() - 5 * 3600e3).toISOString().slice(0, 10);   // Panamá, UTC-5
 const pdir = path.join(__dirname, 'promos');
 const COL = { NB: [10, 11, 0], RB: [12, 13, 1] };
-for (const f of fs.existsSync(pdir) ? fs.readdirSync(pdir).filter(n => n.endsWith('.json')).sort() : []) {
+for (const f of fs.existsSync(pdir) ? fs.readdirSync(pdir).filter(n => n.endsWith('.json') && n !== 'index.json').sort() : []) {
   const P = JSON.parse(fs.readFileSync(path.join(pdir, f), 'utf8')), c = COL[P.tarifa];
   if (!c) { console.log(f + ': tarifa desconocida ' + P.tarifa); continue; }
   if (hoy < P.desde || hoy > P.hasta) { console.log(f + ': no vigente hoy (' + hoy + '), se ignora'); continue; }

@@ -168,6 +168,22 @@ async function getList(ep){
   try{const r=await fetch('../'+ep);if(!r.ok)return null;return await r.json();}catch(e){return null;}
 }
 const fileBuf=async name=>{const r=await fetch('../'+name.split('/').map(encodeURIComponent).join('/'),{cache:'no-store'});if(!r.ok)throw new Error('no se pudo leer '+name);return r.arrayBuffer();};
+// Promociones con fecha (Black Friday, etc.): se leen de GitHub (tools/promos/) también cuando la app corre con el lanzador.
+// Mientras están vigentes (fecha de Panamá) reemplazan el %Dto de la tarifa, código por código. Al vencer dejan de aplicar solas.
+const PROMOS='https://joelmorales7.github.io/Creacion-de-articulos/tools/promos/';
+async function aplicarPromos(){
+  try{
+    const get=async n=>{const c=new AbortController(),t=setTimeout(()=>c.abort(),8000);try{const r=await fetch(PROMOS+n,{cache:'no-cache',signal:c.signal});return r.ok?await r.json():null;}finally{clearTimeout(t);}};
+    const hoy=new Date(Date.now()-5*3600e3).toISOString().slice(0,10),idx=await get('index.json');
+    for(const n of Array.isArray(idx)?idx:[]){
+      const P=await get(n);if(!P||!P.dto||!/^(NB|RB)$/.test(P.tarifa)||hoy<P.desde||hoy>P.hasta)continue;
+      for(const [b,a] of D.byCB){const d=P.dto[b];if(d==null)continue;
+        if(!a.pre)a.pre={NB:precioDe(a,'NB'),RB:precioDe(a,'RB')};
+        const cur=a.pre[P.tarifa],precio=cur?cur.precio:(P.bruto?P.bruto[b]:null);if(precio==null)continue;
+        a.pre[P.tarifa]={precio,desc:d,origen:P.nombre};}
+    }
+  }catch(e){}
+}
 // La data se carga sola y en silencio; solo se avisa si falta algo (para que avisen a Compras)
 let LISTO=false;const PEND=[];
 function aviso(t){const el=$('aviso');el.innerHTML=t?esc(t)+' Avisa a Compras.':'';}
@@ -175,14 +191,14 @@ async function loadFolder(){
   const fallas=[];
   if(!/^https?:$/.test(location.protocol)){aviso('Abre la app desde el link o con el lanzador.');return;}
   await getList('icg-files');
-  if(PUB){try{const r=await fetch('datos.json',{cache:'no-cache'});if(r.ok){const J=await r.json();if(J.firma===firmaDe(PUB.lists)){cargarCompacto(J);return listo([]);}}}catch(e){}}
+  if(PUB){try{const r=await fetch('datos.json',{cache:'no-cache'});if(r.ok){const J=await r.json();if(J.firma===firmaDe(PUB.lists)){cargarCompacto(J);await aplicarPromos();return listo([]);}}}catch(e){}}
   const list=await getList('icg-files');
   if(list&&list.length){for(const f of list){try{indexIcg(XLSX.read(await fileBuf(f.name),{type:'array'}));}catch(e){fallas.push(f.name.split('/').pop());}}}
   else fallas.push('DATA ICG');
   calcCostes();
   const pl=await getList('precio-files');
   if(pl&&pl.length){for(const f of pl){try{indexPrecios(XLSX.read(await fileBuf(f.name),{type:'array'}),f.name.split('/').pop());}catch(e){fallas.push(f.name.split('/').pop());}}}
-  listo(fallas);
+  await aplicarPromos();listo(fallas);
 }
 function listo(fallas){
   if(!D.precios.n)fallas.push('listas de precios');
