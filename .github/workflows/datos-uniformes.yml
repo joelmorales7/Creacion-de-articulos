@@ -1,5 +1,6 @@
 name: Datos de la APP de uniformes
 # Cuando se publica data nueva (publicar.ps1), arma uniformes/datos.json para que la APP cargue rápido.
+# También corre cada día a medianoche de Panamá para activar o vencer las promociones de tools/promos/.
 on:
   push:
     branches: [main]
@@ -9,6 +10,9 @@ on:
       - 'PRECIOS RETAL ICG/**'
       - 'uniformes/datos.js'
       - 'tools/datos-uniformes.js'
+      - 'tools/promos/**'
+  schedule:
+    - cron: '10 5 * * *'   # 00:10 de Panamá: activa o vence las promociones con fecha
   workflow_dispatch:
 permissions:
   contents: write
