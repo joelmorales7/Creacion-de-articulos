@@ -567,6 +567,9 @@ const descKey=d=>clean(d).replace(/\b(NEW BALANCE|NB|MENS?|WOMENS?|MEN S|WOMEN S
 // Se usa el Bruto (precio de etiqueta): tarifa NEW BALANCE para la marca New Balance, RUNNING BALBOA para las demás.
 function icgPriceIndex(wb,P){
   let n=0;
+  // Las listas de precios de ICG traen los artículos con sus códigos (Cód. Barras 1/2/3, Referencia, Talla, Color…):
+  // se guardan para saber qué ya existe en ICG aunque la marca no tenga archivo en DATA ICG (ej. ON, HALO)
+  try{const rows=sheetRows(wb.Sheets[wb.SheetNames[0]]),h=rows[0]||{};if('REFERENCIA' in h&&Object.keys(h).some(k=>CBCOL.test(k)))for(const o of rows)(P.rows||(P.rows=[])).push(o);}catch(e){}
   for(const sn of wb.SheetNames){
     const A=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:true});
     const h=A.findIndex((r,i)=>i<20&&r.some(c=>N(c)==='BRUTO'));if(h<0)continue;
@@ -1005,9 +1008,17 @@ async function fileBuf(name){
   S.boot=1;readyMsg();   // ya se pidió todo lo de la carpeta: el mensaje puede decir "listo"
 })();
 
+// La APP es para crear lo que NO existe en ICG: a DATA ICG se suman los artículos de las listas de precios de ICG
+// que no están en DATA (marcas sin archivo DATA, o tallas creadas después del export). Si el código de barras está ahí, ya existe.
+function icgAll(){
+  const I=S.icg||[],X=S.icgp&&S.icgp.rows;if(!X||!X.length)return I;
+  const Bs=new Set();for(const o of I)for(const k in o)if(CBCOL.test(k)){const b=dg(o[k]);if(b)Bs.add(b);}
+  const add=X.filter(o=>{let any=false;for(const k in o)if(CBCOL.test(k)){const b=dg(o[k]);if(b){any=true;if(Bs.has(b))return false;}}return any;});
+  return add.length?I.concat(add):I;
+}
 $('go').onclick=async()=>{
   if(S.icgpP&&!S.icgp){$('go').disabled=true;$('go').textContent='Esperando los precios de ICG…';await S.icgpP;$('go').disabled=false;$('go').textContent='Analizar';}
-  const r=runAnalysis(S.prov,S.icg,T,{temporada:$('temp').value,pv:S.pv});
+  const r=runAnalysis(S.prov,icgAll(),T,{temporada:$('temp').value,pv:S.pv});
   icgPriceCheck(r.rows,S.icgp,T);   // mismo precio que la familia ya creada en ICG
   S.rows=r.rows;S.stats=r.stats;S.F=r.F;S.IR=r.IR;S.pool=r.pool||[];S.restored=0;edRestore();
   const ms=[...new Set(S.rows.map(r=>r.MARCA_N||''))].sort();
@@ -1179,6 +1190,7 @@ function edSave(){if(!S.edKey)return;try{localStorage.setItem(S.edKey,JSON.strin
 function edLog(r,k,v){S.log.push([r['Codigo Barras'],k,v]);S.dirty=true;edSave();}
 function edPrune(){try{for(let i=localStorage.length-1;i>=0;i--){const k=localStorage.key(i);if(k&&k.startsWith(EDKEY)){const o=edLoad(k);if(!o||Date.now()-o.t>45*864e5)localStorage.removeItem(k);}}}catch(e){}}
 // Aplica un cambio a una fila (el mismo camino para la edición en pantalla y para recuperar los guardados)
+const SAMEREF=['MARCA_N','linea','Descripcion','descripcion web','temporada','GENERO','pisada','ancho','descripcion adiciona','descuento grupo p ','excel','idshopi'];
 function applyEdit(r,k,v){
   if(k.startsWith('OKF:')){const f=k.slice(4),val=String(r[f]??'');   // ✓ de un campo: misma referencia, mismo tipo y mismo valor
     for(const x of S.rows)if(x===r||(x['CREACION SI/NO']===r['CREACION SI/NO']&&x.Referencia===r.Referencia&&String(x[f]??'')===val)){
@@ -1195,6 +1207,10 @@ function applyEdit(r,k,v){
   else{r[k]=v;if(r._f)delete r._f[k];if(r._miss&&v!==''&&v!==0)delete r._miss[k];}
   // Color de un SKU nuevo: se aplica a todas las tallas de la misma referencia y queda revisado
   if(k==='COLOR'){for(const x of S.rows)if(x===r||(x['CREACION SI/NO']==='SKU NUEVO'&&r['CREACION SI/NO']==='SKU NUEVO'&&x.Referencia===r.Referencia)){x.COLOR=v;x._colorOk=1;if(x._f)delete x._f.COLOR;}}
+  // Marca, línea, descripción, temporada, género y demás datos de la referencia: se aplican a todas sus tallas (igual que el color)
+  if(SAMEREF.includes(k))for(const x of S.rows)if(x!==r&&x['CREACION SI/NO']===r['CREACION SI/NO']&&x.Referencia===r.Referencia){
+    if(k==='MARCA_N'){x.MARCA_N=r.MARCA_N;x.marca=r.marca;if(x._f)delete x._f.marca;if(x._miss&&x.marca!=='')delete x._miss.marca;}
+    else{x[k]=v;if(x._f)delete x._f[k];if(x._miss&&v!==''&&v!==0)delete x._miss[k];if(k==='Descripcion')x['descripcion web']=v;}}
   if(k==='Descripcion')r['descripcion web']=v;
   if(k==='Referencia'){r['SKU padre']=v;const g=S.IR[N(v)];
     if(g){r['CREACION SI/NO']='TALLA NUEVA';fromIcg(r,g,T);}else{r['CREACION SI/NO']='SKU NUEVO';delete r._lock;delete r._colors;}}
