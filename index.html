@@ -348,6 +348,7 @@ function tallaMulti(p,r,foot){
   const cor=String(p['CORRIDA']==null?'':p['CORRIDA']).trim();
   if(!t&&r.fd&&FDIG[r.fd])t=FDIG[r.fd];
   if(!t&&SIZEW.test(r.seg))t=r.seg;
+  if(!t&&foot&&/^\d{1,2}(\.5)?$/.test(r.seg||''))t=r.seg;   // ON: la talla viene al final de la referencia (3WG10034854-5.5)
   if(!t&&/^(XXS|XS|S|M|L|XL|XXL|SMALL|MEDIUM|LARGE|OSFA)$/i.test(cor))t=cor;
   t=t.toUpperCase();t=SZWORD[t]||t;
   if(!t&&!foot)t='OSZ';
@@ -538,12 +539,13 @@ function rowMeta(p,T){const x=parseMarca(p['MARCA'],T);x.raw=String(p['MARCA']||
 /* ---------- Precompra / preventa del fabricante ---------- */
 const PRICEK=['precio 1','precio 2','precio 3','precio 4','precio 5','precio 7'];
 const setPrice=(r,v)=>{for(const k of PRICEK)r[k]=v;};
-// Precio: lista de empaque (MSRP) vs precompra (retail). Si los dos existen y no coinciden, Joel elige (r._prices).
+// Precio (regla de Joel, 24/11/2026): primero el MSRP de la lista de empaque; si no trae, el de la precompra es el definitivo.
+// Los dos con el formato de precio público (redondeado − 0.05, ej. 129.95). Si no coinciden, queda el de la lista y se avisa.
 function applyPrice(r,ms,pv,fmt){
   r._pv=pv||null;delete r._prices;delete r._psrc;
   const pp=pv?parseFloat(pv.price):NaN,a=ms>0?fmt(ms):null,b=pp>0?fmt(pp):null;
   const pf=pv?(pv.priceFile||pv.file):'';
-  if(a!=null&&b!=null&&a!==b){setPrice(r,'');r._prices=[[b,'Precompra: '+pf+' (retail '+pp+')'],[a,'Lista de empaque (MSRP '+ms+')']];}
+  if(a!=null&&b!=null&&a!==b){setPrice(r,a);r._psrc='Lista de empaque: MSRP '+ms+' (la precompra '+pf+' dice '+b+')';}
   else if(a==null&&b!=null){setPrice(r,b);r._psrc='Precompra: '+pf+' (retail '+pp+')';}
   else if(a!=null)r._psrc='Lista de empaque: MSRP '+ms+(b!=null?' (coincide con la precompra '+pf+')':'');
 }
@@ -670,7 +672,8 @@ function preventaIndex(wb,file,brand,PV,photos){
       const keys=[v.ref,st,v.rtw].filter(Boolean).map(PK);if(dg(v.upc))keys.push('#'+dg(v.upc));   // también por código de barras
       for(const k of keys){const o=PV[k];
         if(!o)PV[k]=v;
-        else for(const f in v)if((o[f]===''||o[f]==null)&&v[f]!==''&&v[f]!=null)o[f]=v[f];}   // otra hoja/archivo del mismo estilo completa lo que falte (ej. hoja PVP)
+        else{for(const f in v)if((o[f]===''||o[f]==null)&&v[f]!==''&&v[f]!=null)o[f]=v[f];
+          if(v.brand&&v.brand!==o.brand)o._multi=1;}}   // el mismo código está en carpetas de dos marcas (ej. PRECIOS RETAIL RTW-BMC): no sirve para saber la marca   // otra hoja/archivo del mismo estilo completa lo que falte (ej. hoja PVP)
       n++;});
   }
   return n;
@@ -712,6 +715,12 @@ function runAnalysis(P,I,T,o){
   const ks=Object.keys(P[0]||{}),catKey=ks.find(k=>k==='CATEGORIA')||ks.find(k=>k[0]==='_'&&P.some(p=>/^(FOOTWEAR|APPAREL|ACCESORIOS)$/.test(N(p[k]))))||'CATEGORIA';
   const X=P.map(p=>Object.assign({cat:p[catKey]},rowMeta(p,T)));
   // marca faltante: inferir por inicio de referencia o prefijo del código de barras
+  // la columna Marca trae la tienda (ej. RUNNING BALBOA MULTIPLAZA): la marca sale de la precompra (código de barras o referencia) o de ICG
+  const pvBrand=p=>{const e=String(p['REFERENCIA']||'').trim(),e2=e.replace(/-[^-]*$/,''),b=dg(p['CODIGO BARRAS']);
+    for(const k of [b&&'#'+b,e,e2]){const v=k&&PV[PK(k)];if(v&&v.brand&&!v._multi&&T.marca[v.brand]!=null)return v.brand;}
+    for(const k of [e,e2]){const g=k&&IR[N(k)];if(g){const m=parseMarca(g.row['MARCA'],T).brand;if(m)return m;}}
+    return '';};
+  P.forEach((p,i)=>{if(!X[i].brand)X[i].brand=pvBrand(p);});
   const kR=p=>'R'+N(p['REFERENCIA']).replace(/[^A-Z0-9]/g,'').slice(0,6),kB=p=>'B'+dg(p['CODIGO BARRAS']).slice(0,7),BM={};
   P.forEach((p,i)=>{if(X[i].brand){BM[kR(p)]=BM[kR(p)]||X[i].brand;if(dg(p['CODIGO BARRAS']))BM[kB(p)]=BM[kB(p)]||X[i].brand;}});
   P.forEach((p,i)=>{if(!X[i].brand)X[i].brand=BM[kR(p)]||(dg(p['CODIGO BARRAS'])&&BM[kB(p)])||'';});
