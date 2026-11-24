@@ -177,7 +177,10 @@ function linList(T,mc){
   return T._ll[mc]||(T._ll[mc]=keys(T.lin,mc+'|').map(([n,c])=>[clean(n),c]).filter(x=>x[0]).sort((a,b)=>b[0].length-a[0].length));
 }
 // Estilo de una referencia: U9060ZGB -> U9060, T4040TG8-D -> T4040 (sin ancho), 1127895-BBLC -> 1127895, 1011B021.001 -> 1011B021
-const styleKey=ref=>{const s=N(ref).replace(/-(2A|B|D|2E|4E|6E|E|P|G|M|W)$/,''),p=s.split(/[-. \/]/);return p.length>1?p[0]:(s.match(/^[A-Z]*\d+/)||[''])[0];};
+// ON: 3MF10114851 = estilo 3MF1011 + color 4851 (sin esto todas las ON quedaban con el estilo "3" y heredaban la línea CLOUDMONSTER)
+const styleKey=ref=>{const s=N(ref).replace(/-(2A|B|D|2E|4E|6E|E|P|G|M|W)$/,''),p=s.split(/[-. \/]/);if(p.length>1)return p[0];
+  if(/^\d[A-Z]{2}\d{8}$/.test(s))return s.slice(0,7);
+  const m=(s.match(/^[A-Z]*\d+/)||[''])[0];return m.length>=4?m:s;};
 // Árbol que ICG ya usa para ese estilo (TS de icgLearn): manda sobre lo que dice el archivo (ej. 4040 = HOMBRE - ZAPATILLAS - BASEBALL)
 function styleTree(T,brand,ref,ts){
   const v=ts&&ts[brand+'|'+styleKey(ref)];if(!v)return null;
