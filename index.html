@@ -719,9 +719,12 @@ function runAnalysis(P,I,T,o){
   const X=P.map(p=>Object.assign({cat:p[catKey]},rowMeta(p,T)));
   // marca faltante: inferir por inicio de referencia o prefijo del código de barras
   // la columna Marca trae la tienda (ej. RUNNING BALBOA MULTIPLAZA): la marca sale de la precompra (código de barras o referencia) o de ICG
+  const BP={};for(const o of I){const m=parseMarca(o['MARCA'],T).brand;if(!m)continue;
+    for(const k in o)if(/^COD(IGO)?\.? ?(DE )?BARRAS \d$/.test(k)){const b=dg(o[k]);if(b.length<12||/^25/.test(b))continue;const f=b.slice(0,7);BP[f]=BP[f]&&BP[f]!==m?'*':m;}}
   const pvBrand=p=>{const e=String(p['REFERENCIA']||'').trim(),e2=e.replace(/-[^-]*$/,''),b=dg(p['CODIGO BARRAS']);
     for(const k of [b&&'#'+b,e,e2]){const v=k&&PV[PK(k)];if(v&&v.brand&&!v._multi&&T.marca[v.brand]!=null)return v.brand;}
     for(const k of [e,e2]){const g=k&&IR[N(k)];if(g){const m=parseMarca(g.row['MARCA'],T).brand;if(m)return m;}}
+    const pb=b.length>=12&&BP[b.slice(0,7)];if(pb&&pb!=='*')return pb;   // mismo prefijo de código de barras (fabricante) que artículos de una sola marca en ICG
     return '';};
   P.forEach((p,i)=>{if(!X[i].brand)X[i].brand=pvBrand(p);});
   const kR=p=>'R'+N(p['REFERENCIA']).replace(/[^A-Z0-9]/g,'').slice(0,6),kB=p=>'B'+dg(p['CODIGO BARRAS']).slice(0,7),BM={};
@@ -883,8 +886,16 @@ function sheetRows(ws){
   const ci=H.indexOf('COLOR'),rg=XLSX.utils.decode_range(ws['!ref']||'A1'),txtAt=j=>{const c=ws[XLSX.utils.encode_cell({r:rg.s.r+j,c:rg.s.c+ci})];return c?String(c.w!=null&&typeof c.v!=='string'?c.w:c.v):'';};
   return A.map((r,j)=>[r,j]).slice(h+1).filter(([r])=>r.some(c=>c!==''&&c!=null)).map(([r,j])=>{const o={};H.forEach((k,i)=>{if(!(k in o)||o[k]==='')o[k]=r[i]==null?'':r[i];});if(ci>=0)o.COLOR=txtAt(j);return o;});
 }
+// DATA ICG también puede venir como un solo texto de ICG (Exportar a Fichero de Texto Unicode: UTF-16, columnas separadas por tabulador),
+// con todas las marcas. Si en DATA ICG hay un .TXT, se usa solo el texto (los DATA *.xls quedan de respaldo y no se leen).
+// Va en su propia lista (icg-txt) para que la APP de uniformes siga leyendo solo los Excel.
+function txtWB(buf){const u=new Uint8Array(buf);let s;
+  if(u[0]===0xFF&&u[1]===0xFE)s=new TextDecoder('utf-16le').decode(u);else if(u[0]===0xFE&&u[1]===0xFF)s=new TextDecoder('utf-16be').decode(u);else s=new TextDecoder('utf-8').decode(u);
+  const A=s.replace(/^\uFEFF/,'').split(/\r?\n/).filter(l=>l.trim()).map(l=>l.split('\t').map(c=>c.trim()));
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(A),'DATA');return wb;}
+const readWB=(buf,name)=>/\.txt$/i.test(String(name||''))?txtWB(buf):XLSX.read(buf,{type:'array'});
 async function readFile(file,kind){
-  const wb=XLSX.read(await file.arrayBuffer(),{type:'array'});
+  const wb=readWB(await file.arrayBuffer(),file.name);
   const rows=sheetRows(wb.Sheets[wb.SheetNames[0]]),has=rows[0]||{};
   let need;
   if(kind==='prov')need='REFERENCIA PADRE' in has?['CODIGO BARRAS','REFERENCIA PADRE','TALLA','COLOR','GRUPO','GENERO','LINEA','MODELO','MSRP','CATEGORIA']:['CODIGO BARRAS','MARCA','REFERENCIA','TALLA'];
@@ -972,7 +983,7 @@ async function fileBuf(name){
   const show=id=>{$(id).hidden=false;};   // sin carpeta: se deja el recuadro para cargar a mano
   if(!/^https?:$/.test(location.protocol)){["s_icg","s_icgp","s_pre"].forEach(show);$("ready").hidden=true;return;}
   await loadTreeFromFolder();
-  const list=await getList('icg-files');
+  const txt=await getList('icg-txt'),list=txt&&txt.length?txt:await getList('icg-files');   // DATA TOTAL ICG.TXT (todas las marcas) si existe; si no, los DATA *.xls
   if(!(list&&list.length))show("s_icg");
   if(list&&list.length){
     const el=folderSlot('s_icg','Data de ICG (carpeta DATA ICG)','Se toma sola de los archivos DATA de la carpeta. Para actualizarla, reemplaza esos archivos y recarga la página.'),st=el.querySelector('.st');
