@@ -493,7 +493,8 @@ function mkMulti(p,b,T,x){
     mdl=foot?(h?h[0]:brand==='OOFOS'?r.ref.slice(0,4):''):stripG(p['SUBCATEGORIA']&&!/^(APPAREL|ACCESSORIES|OTHER)$/i.test(p['SUBCATEGORIA'])?p['SUBCATEGORIA']:p['DESCRIPCION']||'');}
   const dsc=descStyled(st,gd,mdl);if(viaHint&&hint.rev)fl.Descripcion=1;
   let tl=pr2||tallaMulti(p,r,foot);
-  if(!pr2&&uni&&/^\d+(\.\d+)?$/.test(tl)){const n=+tl;tl=uniInf&&g==='Women'?'H'+num(n-1.5)+'|M'+num(n):'H'+num(n)+'|M'+num(n+1.5);}
+  // Unisex con una sola talla en el archivo: esa talla es SIEMPRE la de hombre, aunque la descripción diga mujer (H n | M n+1.5)
+  if(!pr2&&uni&&/^\d+(\.\d+)?$/.test(tl)){const n=+tl;tl='H'+num(n)+'|M'+num(n+1.5);}
   const ms=parseFloat(p['MSRP']),pr=ms>0?+(Math.round(ms)-0.05).toFixed(2):'';   // applyPrice() lo cruza luego con la precompra
   return {'CREACION SI/NO':'','Codigo Barras':Number(b),'Referencia':r.ref,'Talla':tl,'COLOR':color(p['COLOR']),'Descripcion':dsc,
     'Departamento':dept??'','Seccion':sec??'','Familia':fam??'','subfamilia':sub,'linea':lin,'marca':mc??'','pisada':foot?pisada(brand,model0+' '+dsc):'','ancho':foot?'D':'',_miss:ms_,
