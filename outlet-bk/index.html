@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Artículos Outlet BK</title>
+<style>
+:root{--bg:#f2f4f6;--pn:#fff;--ink:#17212b;--mut:#5d6b78;--ln:#d9dfe5;--ac:#7a3e9d;--acs:#f1e8f6;--wr:#fff3d6;--wrt:#8a5a00;--ok:#2b7a4b;--bad:#b3261e}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10161c;--pn:#18212a;--ink:#e8edf2;--mut:#9aa8b5;--ln:#2b3844;--ac:#c79ae0;--acs:#2e2238;--wr:#3b2f12;--wrt:#f0c36a;--ok:#6fcf97;--bad:#ff8a80}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 ui-sans-serif,"Segoe UI",system-ui,sans-serif}
+main{max-width:1500px;margin:0 auto;padding:28px 20px 60px}
+h1{font-size:26px;margin:0 0 4px}
+h2{font-size:17px;margin:0 0 12px}
+p.sub{margin:0 0 24px;color:var(--mut);max-width:85ch}
+section{background:var(--pn);border:1px solid var(--ln);border-radius:6px;padding:20px;margin-bottom:20px}
+[hidden]{display:none!important}
+.slots{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.slot{border:1.5px dashed var(--ln);border-radius:6px;padding:14px;cursor:pointer;display:block}
+.slot:hover,.slot.over{border-color:var(--ac);background:var(--acs)}
+.slot.ok{border-style:solid;border-color:var(--ok)}
+.slot b{display:block}.slot small{color:var(--mut)}.slot .st{display:block;margin-top:8px;font-size:13px}
+.slot input{display:none}
+button{font:inherit;font-weight:600;border:0;border-radius:4px;padding:9px 18px;background:var(--ac);color:#fff;cursor:pointer}
+button.sec{background:transparent;color:var(--ac);border:1px solid var(--ac)}
+button:disabled{opacity:.4;cursor:not-allowed}
+.note{color:var(--mut);font-size:13px}
+.err{color:var(--bad);white-space:pre-line;margin-top:10px}
+.strip{display:flex;flex-wrap:wrap;border:1px solid var(--ln);border-radius:6px}
+.strip div{flex:1 1 140px;padding:12px 16px;border-right:1px solid var(--ln)}
+.strip div:last-child{border-right:0}
+.strip strong{display:block;font-size:26px;line-height:1.1}
+.strip span{font-size:13px;color:var(--mut)}
+.todo{margin:16px 0 4px;padding:12px 16px;background:var(--acs);border-radius:6px}
+.todo ul{margin:6px 0 0;padding-left:20px}
+.bar{display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin:16px 0 10px}
+.bar .sp{flex:1}
+label.f{display:flex;flex-direction:column;font-size:13px;color:var(--mut);gap:4px}
+input,select{font:inherit;color:var(--ink);background:var(--pn);border:1px solid var(--ln);border-radius:4px;padding:6px 8px}
+.tw{max-height:620px;overflow:auto;border:1px solid var(--ln);border-radius:6px}
+table{border-collapse:collapse;width:100%}
+th,td{padding:4px 7px;border-bottom:1px solid var(--ln);text-align:left;white-space:nowrap;font-size:13px}
+th{position:sticky;top:0;background:var(--pn);z-index:1;color:var(--mut);font-weight:600}
+td input,td select{width:100%;min-width:60px;padding:3px 5px;font-size:13px}
+td input.n{width:72px;min-width:72px}td input.w{min-width:120px}td input.d{min-width:260px}td select{min-width:120px}
+td.bad{background:var(--wr)}td.bad input,td.bad select{border-color:var(--wrt)}
+.code{font-family:ui-monospace,Consolas,monospace}
+.tag{font-size:12px;padding:1px 7px;border-radius:10px;background:var(--acs);color:var(--ac)}
+.tag.t{background:var(--wr);color:var(--wrt)}
+@media (max-width:600px){main{padding:16px}}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+<main>
+<h1>Artículos · Outlet BK</h1>
+<p class="sub">Para las tiendas Outlet ZL 1, 2 y 3 (solo marcas de running). Carga la lista de empaque y el pedido a la bodega principal. La app busca en la data de ICG de BK qué códigos de barras no existen y arma el archivo de creación para el mapping <b>ARTICULOS NUEVOS ZL1</b> de ICG.</p>
+
+<section>
+<h2>1. Archivos</h2>
+<div class="slots">
+ <label class="slot" id="s_lista"><b>Lista de empaque</b><small>Referencia, Codigo Barras, Talla, Cantidad, Precio, Modelo, Genero, Color, Familia…</small><span class="st">Sin cargar</span><input type="file" accept=".xlsx,.xls,.xlsm,.csv"></label>
+ <label class="slot" id="s_ped"><b>Pedido a la bodega (con PVP)</b><small>Plantilla del pedido: Referencia, PVP, PRECIO RTW / BMC, MODELO. De aquí salen el precio de venta y el costo.</small><span class="st">Sin cargar</span><input type="file" accept=".xlsx,.xls,.xlsm" multiple></label>
+</div>
+<p class="note" id="datainfo">⏳ Cargando la data de ICG de BK…</p>
+<div class="bar"><button id="go" disabled>Analizar</button></div>
+<div class="err" id="err"></div>
+</section>
+
+<section id="out" hidden>
+<h2>2. Resumen</h2>
+<div class="strip" id="strip"></div>
+<div class="todo" id="todo"></div>
+</section>
+
+<section id="tbl" hidden>
+<h2>3. Artículos a crear</h2>
+<p class="note">Las celdas en amarillo están vacías o son una suposición: revísalas. Un cambio en color, descripción, árbol, marca, costo, PVP o nombre se copia a todas las tallas de la misma referencia.</p>
+<div class="bar">
+ <label class="f">Mostrar<select id="ftipo"><option value="">Todos</option><option>SKU NUEVO</option><option>TALLA NUEVA</option></select></label>
+ <label class="f">Buscar<input id="fq" placeholder="Referencia o código"></label>
+ <label style="margin-bottom:8px"><input type="checkbox" id="fpend"> Solo por revisar</label>
+ <span class="sp"></span>
+ <button id="dlt">Descargar Excel para ICG</button>
+</div>
+<div class="tw"><table><thead><tr><th>Tipo</th><th>Cód. barras</th><th>Referencia</th><th>Talla</th><th>Color</th><th>Descripción</th><th>Dpto</th><th>Sección</th><th>Familia</th><th>Subfamilia</th><th>Marca</th><th>Línea (NB)</th><th>Costo</th><th>PVP</th><th>Nombre producto</th><th>Uds</th><th>Ref. proveedor</th></tr></thead><tbody id="tb"></tbody></table></div>
+<p class="note" id="more"></p>
+</section>
+</main>
+
+<script>
+// ===================== REGLAS DE OUTLET BK (Joel, 26/11/2026) =====================
+// Solo marcas de running (la base de BK la comparten Levi's, Dockers, etc. que no administramos).
+const RUNNING=['NEW BALANCE','NEW BALANCE SELECCION','ASICS','HOKA','BROOKS','SAUCONY','MIZUNO','2XU','SCOTT','OOFOS','NNORMAL','CIELE','WARRIOR','SHOCK DOCTOR'];
+// Unisex: si el proveedor da una sola talla, es SIEMPRE la de hombre. En BK se escribe "H8|M9.5".
+// Mujer = hombre + 1.5 (ASICS, regla general); HOKA + 1 (así está en la data de BK, por confirmar con Joel).
+const UNI_OFF={HOKA:1};const UNI_DEF=1.5;
+const TALLA_MAX=10;      // el campo talla de ICG BK corta en 10 caracteres
+const DESC_MAX=40;       // descripciones de BK cortadas en 40
+const SUBFAM_DEF='REGULAR';   // pendiente de confirmar por Joel
+// Sufijo de curva que no va en la referencia de ICG (en BK no existen con sufijo)
+const CURVA={ASICS:/-(?:U[MW]\d+|L[MW]\d+|Y\d+|[MW]\d+)$/i,HOKA:/^(\d{7}-[A-Z0-9]+)-[A-Z0-9.\/]+$/i};
+// Las columnas del mapping "ARTICULOS NUEVOS ZL1" de ICG (títulos en la fila 1, datos desde la 2)
+const MAP=['REFERENCIA','TALLA+','COLOR','DESCRIPCION','DEP','SEC','FAMILIA','SUBFAMILIA','CODMARCA','CODBARRA','COSTO','PRECIO','NOMBRE DE PRODUCTO','MANGA'];
+
+// ===================== utilidades =====================
+const $=id=>document.getElementById(id);
+const N=s=>String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'').trim().toUpperCase();
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dg=v=>{let s=String(v==null?'':v).trim();if(/e\+/i.test(s))return '';s=s.replace(/\.0+$/,'').replace(/\D/g,'').replace(/^0+/,'');return s.length>=6?s:'';};
+// Tipo título; siglas cortas y códigos con números quedan en mayúscula (GT-2000, FF, TR62)
+const title=s=>String(s).split(/([\s\-\/(]+)/).map(w=>/^[\s\-\/(]*$/.test(w)?w:(/\d/.test(w)||w.length<=2)&&w===w.toUpperCase()?w:w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join('');
+const fnum=v=>{if(v===''||v==null)return '';const n=+String(v).replace(',','.');return isNaN(n)?'':Math.round(n*100)/100;};
+const cnt=a=>{const m=new Map();for(const x of a)if(x!=null&&x!=='')m.set(x,(m.get(x)||0)+1);let b=null,bn=0;for(const [k,v] of m)if(v>bn){b=k;bn=v;}return b;};
+
+// Texto de ICG (Unicode o ANSI), separado por TAB. Une las filas partidas por saltos de línea dentro de la descripción.
+function parseTxt(buf){
+  const u=new Uint8Array(buf);let s;
+  if(u[0]===0xFF&&u[1]===0xFE)s=new TextDecoder('utf-16le').decode(u);
+  else if(u[0]===0xFE&&u[1]===0xFF)s=new TextDecoder('utf-16be').decode(u);
+  else{s=new TextDecoder('utf-8',{fatal:false}).decode(u);if(s.includes('�'))s=new TextDecoder('windows-1252').decode(u);}
+  const L=s.split(/\r\n|\n|\r/);const H=L[0].split('\t').map(x=>x.trim());const out=[];let buf2=null;
+  for(let i=1;i<L.length;i++){
+    const l=L[i];if(buf2===null&&!l.trim())continue;
+    const cur=buf2===null?l:buf2+' '+l;const p=cur.split('\t');
+    if(p.length>=H.length){const o={};H.forEach((h,k)=>o[h]=(p[k]||'').trim());out.push(o);buf2=null;}else buf2=cur;
+  }
+  return {H,rows:out};
+}
+function sheetRows(ws){return XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true});}
+function findHeader(R,need){for(let i=0;i<Math.min(R.length,40);i++){const h=R[i].map(N);if(need.every(n=>h.some(x=>n instanceof RegExp?n.test(x):x===n)))return i;}return -1;}
+function col(H,...pats){const h=H.map(N);for(const p of pats){const i=h.findIndex(x=>p instanceof RegExp?p.test(x):x===p);if(i>=0)return i;}return -1;}
+
+// ===================== data de ICG de BK =====================
+const D={art:null,price:null,tree:null,brands:null};
+const IX={bc:new Map(),ref:new Map(),price:new Map()};
+async function listFiles(){
+  try{const r=await fetch('lista.json',{cache:'no-store'});if(r.ok)return (await r.json()).files;}catch(e){}
+  try{const r=await fetch('/files',{cache:'no-store'});if(r.ok)return await r.json();}catch(e){}
+  return null;
+}
+async function getBuf(name){const r=await fetch(encodeURI(name),{cache:'no-store'});if(!r.ok)throw new Error('No se pudo leer '+name);return r.arrayBuffer();}
+
+function buildTree(rows){
+  // ARBOL DEPARTAMENTOS.TXT: Departamento, Nombre Departamento, Seccion, Nombre Sección, Família, Nombre Familia, SubFamilia, Nombre Subfamilia
+  const T={dept:new Map(),sec:new Map(),fam:new Map(),sub:new Map()};
+  const v=o=>Object.values(o);
+  for(const o of rows){const [dc,dn,sc,sn,fc,fn,uc,un]=v(o);
+    if(dn&&dc!==''&&!T.dept.has(N(dn)))T.dept.set(N(dn),{c:dc,n:dn});
+    if(sn&&sc!=='')T.sec.set(dc+'|'+N(sn),{c:sc,n:sn});
+    if(fn&&fc!=='')T.fam.set(dc+'|'+sc+'|'+N(fn),{c:fc,n:fn});
+    if(un&&uc!=='')T.sub.set(dc+'|'+sc+'|'+fc+'|'+N(un),{c:uc,n:un.trim()});}
+  return T;
+}
+function buildBrands(rows){
+  const B={marca:new Map(),lin:new Map()};
+  for(const o of rows){const [mc,mn,lc,ln]=Object.values(o);if(!mn)continue;
+    if(!B.marca.has(N(mn)))B.marca.set(N(mn),{c:mc,n:mn});
+    if(ln&&lc!=='')B.lin.set(N(mn)+'|'+N(ln),{c:lc,n:ln});}
+  return B;
+}
+function indexArt(rows){
+  for(const o of rows){
+    if(!RUNNING.includes(N(o['Marca'])))continue;
+    for(const k of ['Cód. Barras','Cód. Barras 2','Cód. Barras 3']){const b=dg(o[k]);if(b)IX.bc.set(b,o);}
+    const r=N(o['Referencia']);if(!r)continue;
+    if(!IX.ref.has(r))IX.ref.set(r,[]);IX.ref.get(r).push(o);
+  }
+}
+function indexPrice(rows){for(const o of rows){const r=N(o['Referencia']);const b=fnum(o['Bruto']);if(r&&b){if(!IX.price.has(r))IX.price.set(r,[]);IX.price.get(r).push(b);}}}
+
+async function loadData(){
+  const files=await listFiles();
+  if(!files){$('datainfo').innerHTML='⚠ No encontré la data de ICG. Abre la app con <b>Abrir APP articulos BK.bat</b> desde la carpeta OUTLET BK.';return;}
+  const pick=re=>files.filter(f=>re.test(f.name.split('/').pop())).sort((a,b)=>b.modified.localeCompare(a.modified))[0];
+  const fa=pick(/^DATA.*\.txt$/i),fp=pick(/^PRECIOS.*\.txt$/i),fd=pick(/^ARBOL\s*DEP.*\.txt$/i),fm=pick(/^ARBOL\s*MAR.*\.txt$/i);
+  const miss=[[fa,'DATA … .TXT (artículos de ICG BK)'],[fd,'ARBOL DEPARTAMENTOS.TXT'],[fm,'ARBOL MARCAS.TXT']].filter(x=>!x[0]).map(x=>x[1]);
+  if(miss.length){$('datainfo').innerHTML='⚠ Falta en la carpeta: '+miss.map(esc).join(', ');return;}
+  try{
+    const [a,d,m,p]=await Promise.all([getBuf(fa.name),getBuf(fd.name),getBuf(fm.name),fp?getBuf(fp.name):null]);
+    const A=parseTxt(a);indexArt(A.rows);D.art=A;
+    D.tree=buildTree(parseTxt(d).rows);D.brands=buildBrands(parseTxt(m).rows);
+    if(p){indexPrice(parseTxt(p).rows);D.price=true;}
+    $('datainfo').innerHTML='✓ Data de ICG BK lista: '+esc(fa.name)+' ('+esc(fa.modified)+', '+IX.ref.size.toLocaleString('es')+' referencias de running)'+(fp?' · precios '+esc(fp.name):' · sin archivo de precios')+' · árbol '+esc(fd.modified);
+    D.ok=true;ready();
+  }catch(e){$('datainfo').textContent='⚠ Error leyendo la data: '+e.message;}
+}
+
+// ===================== archivos del usuario =====================
+const U={lista:null,ped:[]};
+function slot(id,key,multi){
+  const el=$(id),inp=el.querySelector('input');
+  const load=async fs=>{try{
+      const out=[];for(const f of fs){const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});out.push({name:f.name,wb});}
+      if(multi)U[key]=out;else U[key]=out[0];
+      el.classList.add('ok');el.querySelector('.st').textContent='✓ '+out.map(x=>x.name).join(', ');ready();
+    }catch(e){el.querySelector('.st').textContent='⚠ '+e.message;}};
+  inp.onchange=()=>inp.files.length&&load([...inp.files]);
+  el.ondragover=e=>{e.preventDefault();el.classList.add('over');};el.ondragleave=()=>el.classList.remove('over');
+  el.ondrop=e=>{e.preventDefault();el.classList.remove('over');if(e.dataTransfer.files.length)load([...e.dataTransfer.files]);};
+}
+function ready(){$('go').disabled=!(D.ok&&U.lista);}
+
+function readLista(wb){
+  for(const sn of wb.SheetNames){const R=sheetRows(wb.Sheets[sn]);const hi=findHeader(R,['REFERENCIA','TALLA',/^COD(IGO)?\.? ?(DE )?BARRAS?$/]);if(hi<0)continue;
+    const H=R[hi],c={ref:col(H,'REFERENCIA'),bc:col(H,/^COD(IGO)?\.? ?(DE )?BARRAS?$/),talla:col(H,'TALLA'),cant:col(H,'CANTIDAD'),precio:col(H,'PRECIO'),modelo:col(H,'MODELO'),gen:col(H,'GENERO'),color:col(H,'COLOR'),fam:col(H,'FAMILIA'),sub:col(H,'SUBCATEGORIA'),desc:col(H,'DESCRIPCION'),marca:col(H,'MARCA'),msrp:col(H,'MSRP')};
+    const out=[];for(const r of R.slice(hi+1)){if(!String(r[c.ref]).trim())continue;const g=k=>c[k]>=0?r[c[k]]:'';
+      out.push({ref:String(g('ref')).trim(),bc:dg(g('bc')),bcRaw:String(g('bc')).trim(),talla:String(g('talla')).trim(),cant:+g('cant')||0,precio:fnum(g('precio')),modelo:String(g('modelo')).trim(),gen:N(g('gen')),color:String(g('color')).trim(),fam:N(g('fam')),sub:N(g('sub')),desc:String(g('desc')).trim(),marca:N(g('marca'))});}
+    return out;}
+  throw new Error('La lista de empaque no tiene columnas Referencia, Codigo Barras y Talla');
+}
+function readPedidos(list){
+  const P=new Map();
+  for(const {wb} of list)for(const sn of wb.SheetNames){const R=sheetRows(wb.Sheets[sn]);const hi=findHeader(R,['REFERENCIA','PVP']);if(hi<0)continue;
+    const H=R[hi],c={ref:col(H,'REFERENCIA'),pvp:col(H,'PVP'),cost:col(H,/RTW/,/BMC/),modelo:col(H,'MODELO'),marca:col(H,'MARCA'),temp:col(H,'TEMPORADA'),desc:col(H,'DESCRIPCION')};
+    for(const r of R.slice(hi+1)){const ref=N(r[c.ref]);if(!ref||ref==='REFERENCIA')continue;
+      P.set(ref,{pvp:fnum(r[c.pvp]),cost:c.cost>=0?fnum(r[c.cost]):'',modelo:c.modelo>=0?String(r[c.modelo]).trim():'',marca:c.marca>=0?N(r[c.marca]):'',desc:c.desc>=0?String(r[c.desc]).trim():''});}}
+  return P;
+}
+
+// ===================== reglas =====================
+function brandOf(x,ped){
+  if(ped&&ped.marca&&D.brands.marca.has(ped.marca))return ped.marca;
+  if(D.brands.marca.has(x.marca)&&RUNNING.includes(x.marca))return x.marca;
+  const r=N(x.ref);
+  if(/^\d{4}[A-Z]\d{3}\.\d{3}/.test(r))return 'ASICS';
+  if(/^\d{7}-[A-Z]+/.test(r))return 'HOKA';
+  for(const [k,v] of IX.ref)if(r.startsWith(k)&&k.length>5)return N(v[0]['Marca']);
+  return '';
+}
+function baseRef(ref,brand){let r=N(ref);const re=CURVA[brand];if(re){const m=r.match(re);if(m)r=m[1]?m[1]:r.replace(re,'');}return r;}
+function tallaStd(t){t=String(t).trim().toUpperCase().replace(',','.');let m=t.match(/^(\d+(?:\.\d)?)H$/);if(m)return String(+m[1]+0.5);m=t.match(/^\d+(?:\.\d+)?$/);if(m)return String(+t);return t;}
+function tallaUni(t,brand){const n=+t;if(isNaN(n))return t;const off=UNI_OFF[brand]!=null?UNI_OFF[brand]:UNI_DEF;return 'H'+n+'|M'+(+(n+off).toFixed(1));}
+function colorOf(ref,brand,ex){
+  if(ex)return {v:cnt(ex.map(o=>o['Color'])),src:'Color de la referencia en ICG BK'};
+  let m;
+  if(brand==='ASICS'&&(m=ref.match(/\.([A-Z0-9]{3})$/)))return {v:m[1],src:'Código de color de la referencia'};
+  if(brand==='HOKA'&&(m=ref.match(/^\d{7}-([A-Z0-9]+)$/)))return {v:m[1],src:'Código de color de la referencia'};
+  if(/^NEW BALANCE/.test(brand)&&(m=ref.replace(/-[0-9A-Z]{1,2}$/,'').match(/([A-Z0-9]{2,3})$/)))return {v:m[1],src:'Últimos caracteres de la referencia NB: revisar',bad:true};
+  if((m=ref.match(/[-.]([A-Z0-9]{2,5})$/)))return {v:m[1],src:'Sufijo de la referencia: revisar',bad:true};
+  return {v:'',src:'',bad:true};
+}
+function kindOf(x){const f=x.fam+' '+N(x.desc);if(/FOOTWEAR|ZAPATILLA|CALZADO|SANDAL|CHANCLA|SLIDE/.test(f))return 'foot';if(/APPAREL|ROPA|CAMISET|SHORT|PANTAL|CHAQUET|LICRA|SOSTEN/.test(f))return 'app';if(/ACCESS|ACCESORI|MEDIA|GORRA|VISERA|MOCHILA|BOLSO/.test(f))return 'acc';return 'foot';}
+function genOf(x){const g=x.gen+' '+N(x.desc);if(/UNISEX/.test(g))return 'U';if(/WOMEN|MUJER|DAMA|^W\b|FEMEN/.test(g))return 'W';if(/KID|NINO|NINA|JUNIOR|YOUTH|INFANT|GS|PS/.test(g))return 'K';return 'M';}
+const DEPT={foot:{M:"MEN'S SHOES",U:"MEN'S SHOES",W:"WOMEN'S SHOES",K:"KID'S SHOES"},app:{M:"APPAREL MEN'S",U:"APPAREL MEN'S",W:"APPAREL WOMEN'S",K:'APPAREL KIDS'},acc:{M:'ACCESORIOS',U:'ACCESORIOS',W:'ACCESORIOS',K:'ACCESORIOS'}};
+const FAMKW=[[/SANDAL/,'SANDALIAS'],[/SLIDE|CHANCL/,'CHANCLETAS'],[/CAMISET|T ?SHIRT|TEE|TANK|TOP|SINGLET|POLO/,'CAMISET'],[/SHORT/,'SHORT'],[/PANT|TIGHT|LEGGING|JOGGER/,'PANTALON'],[/JACKET|CHAQUET|VEST|HOOD/,'CHAQUET'],[/BRA|SOSTEN/,'SOSTEN'],[/SOCK|MEDIA/,'MEDIAS'],[/CAP|HAT|GORRA/,'GORRAS'],[/VISOR|VISERA/,'VISERA'],[/BACKPACK|MOCHILA/,'MOCHILA'],[/BAG|BOLSO/,'BOLSO'],[/GLOVE|GUANTE/,'GUANTES']];
+function treeFor(x,kind,g){
+  const T=D.tree;const dn=DEPT[kind][g];const d=T.dept.get(N(dn));if(!d)return {bad:true};
+  const want=/SPORTSTYLE|LIFESTYLE|CASUAL/.test(x.sub+' '+x.fam)?'LIFESTYLE':'RUNNING';
+  const s=T.sec.get(d.c+'|'+want)||T.sec.get(d.c+'|RUNNING');
+  let fam=null;
+  if(s){const txt=N(x.desc)+' '+x.fam+' '+N(x.modelo);
+    let kw=kind==='foot'?'ZAPATILLA':null;for(const [re,k] of FAMKW)if(re.test(txt)&&(kind!=='foot'||/SANDAL|CHANCL/.test(k))){kw=k;break;}
+    if(kw)for(const [k,v] of T.fam)if(k.startsWith(d.c+'|'+s.c+'|')&&k.split('|')[2].startsWith(kw)){fam=v;break;}}
+  let sub=null;if(fam)sub=T.sub.get(d.c+'|'+s.c+'|'+fam.c+'|'+SUBFAM_DEF);
+  return {dep:d.n,sec:s?s.n:'',fam:fam?fam.n:'',sub:sub?sub.n:'',bad:!s||!fam||want!=='RUNNING',src:'Regla: '+dn+(s?' / '+s.n:'')+(want!=='RUNNING'?' (por la subcategoría '+x.sub+')':'')};
+}
+function descFor(kind,g,modelo,x){
+  const tipo=kind==='foot'?'Zapatillas':title(String(x.desc).replace(/\b(de|para)?\s*(hombre|mujer|unisex|niñ[oa]s?|nino|nina)\b/ig,'').trim()||'Artículo');
+  const gen=g==='U'?'Unisex':g==='W'?'de Mujer':g==='K'?'de Niño':'de Hombre';
+  return (tipo+' '+gen+' '+title(modelo||'')).replace(/\s+/g,' ').trim();
+}
+
+// ===================== análisis =====================
+const S={rows:[],skip:[],other:[]};
+function analizar(){
+  $('err').textContent='';
+  let L,P;
+  try{L=readLista(U.lista.wb);P=readPedidos(U.ped);}catch(e){$('err').textContent=e.message;return;}
+  const rows=[],seen=new Map();let exist=0,dupl=0;const otras=new Set();
+  for(const x of L){
+    const ped=P.get(N(x.ref))||null;
+    const brand=brandOf(x,ped);
+    if(brand&&!RUNNING.includes(brand)){otras.add(brand);continue;}
+    if(x.bc&&IX.bc.has(x.bc)){exist++;continue;}
+    if(x.bc&&seen.has(x.bc)){seen.get(x.bc).Uds+=x.cant;seen.get(x.bc)._prov.add(x.ref);dupl++;continue;}
+    const ref=baseRef(x.ref,brand);const ped2=ped||P.get(ref)||null;
+    const ex=IX.ref.get(ref)||null;
+    const kind=kindOf(x),g=genOf(x);
+    const modelo=(ped2&&ped2.modelo)||x.modelo;
+    const r={_bad:new Set(),_why:{},_prov:new Set([x.ref]),Tipo:ex?'TALLA NUEVA':'SKU NUEVO',bc:x.bc||x.bcRaw,ref,brand,Uds:x.cant};
+    // talla
+    let t=tallaStd(x.talla);
+    if(g==='U'){t=tallaUni(t,brand);r._why.talla='Unisex: la talla del proveedor es la de hombre';
+      if(ex){const h=t.split('|')[0];const e=ex.map(o=>o['Talla']).find(s=>s.split('|')[0]===h);if(e){t=e;r._why.talla='Formato de talla unisex de esta referencia en ICG BK';}}}
+    r.talla=t;if(t.length>TALLA_MAX){r._bad.add('talla');r._why.talla=(r._why.talla||'')+' · tiene '+t.length+' caracteres y ICG solo guarda '+TALLA_MAX;}
+    if(!x.bc){r._bad.add('bc');}
+    // color
+    const c=colorOf(ref,brand,ex);r.color=c.v;r._why.color=c.src;if(c.bad)r._bad.add('color');
+    // árbol, descripción, marca
+    if(ex){const o=ex[ex.length-1];r.dep=o['Departamento'];r.sec=o['Seccion'];r.fam=o['Família'];r.sub=o['SubFamilia'];r.desc=cnt(ex.map(e=>e['Descripción']));r._why.tree='Copiado de la referencia en ICG BK';
+      if(!r.sub){r._bad.add('sub');}}
+    else{const tr=treeFor(x,kind,g);Object.assign(r,{dep:tr.dep||'',sec:tr.sec||'',fam:tr.fam||'',sub:tr.sub||''});r._why.tree=tr.src;if(tr.bad)['dep','sec','fam'].forEach(k=>{if(!r[k]||tr.bad)r._bad.add(k);});
+      r.desc=descFor(kind,g,modelo,x);r._why.desc='Descripción + género + modelo';}
+    if(r.desc.length>DESC_MAX){r._bad.add('desc');r._why.desc=(r._why.desc||'')+' · '+r.desc.length+' caracteres (ICG corta en '+DESC_MAX+')';}
+    r.marca=brand;if(!brand||!D.brands.marca.has(brand))r._bad.add('marca');
+    r.linea='';if(/^NEW BALANCE/.test(brand)){const ln=ex&&cnt(ex.map(o=>o['Linea']));const k=N(ln||modelo).replace(/^(NEW BALANCE|NB)\s+/,'');if(D.brands.lin.has(brand+'|'+k))r.linea=D.brands.lin.get(brand+'|'+k).n;else r._bad.add('linea');}
+    // precios
+    r.pvp=ped2&&ped2.pvp!==''?ped2.pvp:'';r._why.pvp=ped2?'PVP del pedido':'';
+    if(r.pvp===''&&IX.price.has(ref)){r.pvp=cnt(IX.price.get(ref));r._why.pvp='PVP de la referencia en la tarifa de ICG BK';}
+    if(r.pvp==='')r._bad.add('pvp');
+    else if(IX.price.has(ref)&&cnt(IX.price.get(ref))!==r.pvp)r._why.pvp+=' · en ICG BK esta referencia está a '+cnt(IX.price.get(ref));
+    r.cost=ped2&&ped2.cost!==''?ped2.cost:'';r._why.cost='Precio RTW / BMC del pedido';
+    if(r.cost===''){r.cost=x.precio;r._why.cost='Precio de la lista de empaque (no está en el pedido)';r._bad.add('cost');}
+    else if(x.precio!==''&&x.precio!==r.cost)r._why.cost+=' · la lista de empaque dice '+x.precio;
+    r.nombre=String(modelo||'').toUpperCase();if(!r.nombre)r._bad.add('nombre');
+    r.manga='';
+    rows.push(r);if(x.bc)seen.set(x.bc,r);
+  }
+  // una referencia = un color, un árbol, una descripción
+  const byRef=new Map();for(const r of rows){if(!byRef.has(r.ref))byRef.set(r.ref,[]);byRef.get(r.ref).push(r);}
+  for(const [,rs] of byRef)for(const k of ['color','desc','dep','sec','fam','sub','marca','linea','pvp','cost','nombre']){const v=rs[0][k];for(const r of rs)r[k]=v;}
+  rows.sort((a,b)=>a.ref.localeCompare(b.ref)||tsort(a.talla)-tsort(b.talla));
+  S.rows=rows;S.exist=exist;S.dupl=dupl;S.otras=[...otras];S.total=L.length;S.lista=U.lista.name;
+  summary();render();$('out').hidden=$('tbl').hidden=false;
+}
+const tsort=t=>{const m=String(t).match(/[\d.]+/);return m?+m[0]:999;};
+
+// ===================== pantalla =====================
+const OPTS=()=>{const T=D.tree;return {dep:[...T.dept.values()].map(v=>v.n)};};
+function opts(k,r){const T=D.tree;const d=T.dept.get(N(r.dep));
+  if(k==='dep')return [...T.dept.values()].filter(v=>/SHOES|APPAREL|ACCESORIOS/.test(v.n)).map(v=>v.n);
+  if(!d)return [];
+  if(k==='sec')return [...T.sec].filter(([kk])=>kk.startsWith(d.c+'|')).map(([,v])=>v.n);
+  const s=T.sec.get(d.c+'|'+N(r.sec));if(!s)return [];
+  if(k==='fam')return [...T.fam].filter(([kk])=>kk.startsWith(d.c+'|'+s.c+'|')).map(([,v])=>v.n);
+  const f=T.fam.get(d.c+'|'+s.c+'|'+N(r.fam));if(!f)return [];
+  return [...T.sub].filter(([kk])=>kk.startsWith(d.c+'|'+s.c+'|'+f.c+'|')).map(([,v])=>v.n);}
+function codes(r){const T=D.tree;const d=T.dept.get(N(r.dep));const s=d&&T.sec.get(d.c+'|'+N(r.sec));const f=s&&T.fam.get(d.c+'|'+s.c+'|'+N(r.fam));const u=f&&T.sub.get(d.c+'|'+s.c+'|'+f.c+'|'+N(r.sub));const m=D.brands.marca.get(N(r.marca));
+  return {dep:d?d.c:'',sec:s?s.c:'',fam:f?f.c:'',sub:u?u.c:'',marca:m?m.c:''};}
+function summary(){
+  const R=S.rows,sku=new Set(R.filter(r=>r.Tipo==='SKU NUEVO').map(r=>r.ref)),tn=R.filter(r=>r.Tipo==='TALLA NUEVA').length;
+  const bad=R.filter(r=>r._bad.size).length;
+  $('strip').innerHTML=[[S.total,'filas en la lista'],[S.exist,'ya existen en ICG BK'],[sku.size,'referencias nuevas'],[R.length,'códigos a crear'],[tn,'tallas nuevas de refs existentes'],[bad,'filas por revisar']].map(([n,t])=>'<div><strong>'+n+'</strong><span>'+t+'</span></div>').join('');
+  const td=[];
+  if(S.dupl)td.push(S.dupl+' filas repetidas (mismo código en dos curvas, p. ej. unisex hombre y mujer): se sumaron en una.');
+  if(S.otras.length)td.push('Se ignoraron marcas que no son de running: '+S.otras.join(', '));
+  const nb=R.filter(r=>r._bad.has('linea'));if(nb.length)td.push(nb.length+' códigos de New Balance sin línea en el árbol de BK.');
+  td.push('Subfamilia: se puso '+SUBFAM_DEF+' (pendiente de confirmar).');
+  if(R.some(r=>r.brand==='HOKA'&&/\|/.test(r.talla)))td.push('Hoka unisex: mujer = hombre +1 (por confirmar).');
+  $('todo').innerHTML='<b>Para revisar</b><ul>'+td.map(t=>'<li>'+esc(t)+'</li>').join('')+'</ul>';
+}
+const FIELDS=[['color','w'],['desc','d'],['dep','sel'],['sec','sel'],['fam','sel'],['sub','sel'],['marca','mk'],['linea','w'],['cost','n'],['pvp','n'],['nombre','w']];
+function render(){
+  const ft=$('ftipo').value,q=N($('fq').value),fp=$('fpend').checked;
+  const R=S.rows.filter(r=>(!ft||r.Tipo===ft)&&(!q||N(r.ref+' '+r.bc).includes(q))&&(!fp||r._bad.size));
+  const shown=R.slice(0,800);
+  $('tb').innerHTML=shown.map(r=>{const i=S.rows.indexOf(r);
+    const cell=(k,t)=>{const b=r._bad.has(k)?' class="bad"':'';const tt=r._why[k==='dep'||k==='sec'||k==='fam'||k==='sub'?'tree':k];const ti=tt?' title="'+esc(tt)+'"':'';
+      if(t==='sel'){const o=opts(k,r);if(r[k]&&!o.includes(r[k]))o.unshift(r[k]);return '<td'+b+ti+'><select data-i="'+i+'" data-k="'+k+'"><option value=""></option>'+o.map(v=>'<option'+(v===r[k]?' selected':'')+'>'+esc(v)+'</option>').join('')+'</select></td>';}
+      if(t==='mk')return '<td'+b+ti+'><input class="w" list="dlm" data-i="'+i+'" data-k="'+k+'" value="'+esc(r[k])+'"></td>';
+      return '<td'+b+ti+'><input class="'+t+'" data-i="'+i+'" data-k="'+k+'" value="'+esc(r[k])+'"></td>';};
+    return '<tr><td><span class="tag'+(r.Tipo==='TALLA NUEVA'?' t':'')+'">'+r.Tipo+'</span></td><td class="code'+(r._bad.has('bc')?' bad':'')+'">'+esc(r.bc)+'</td><td class="code">'+esc(r.ref)+'</td><td'+(r._bad.has('talla')?' class="bad"':'')+(r._why.talla?' title="'+esc(r._why.talla)+'"':'')+'>'+esc(r.talla)+'</td>'+FIELDS.map(([k,t])=>k==='linea'&&!/^NEW BALANCE/.test(r.brand)?'<td></td>':cell(k,t)).join('')+'<td>'+r.Uds+'</td><td class="code note">'+esc([...r._prov].join(', '))+'</td></tr>';}).join('');
+  $('more').textContent=R.length>shown.length?'Mostrando '+shown.length+' de '+R.length+'. Usa el buscador.':R.length+' filas.';
+}
+document.addEventListener('change',e=>{const el=e.target;if(!el.dataset||el.dataset.i==null)return;
+  const r=S.rows[+el.dataset.i],k=el.dataset.k;let v=el.value.trim();if(k==='cost'||k==='pvp')v=fnum(v);if(k==='marca'||k==='nombre')v=v.toUpperCase();
+  for(const x of S.rows)if(x.ref===r.ref){x[k]=v;x._bad.delete(k);
+    if(k==='dep'){x.sec=x.fam=x.sub='';}if(k==='sec'){x.fam=x.sub='';}if(k==='fam'){x.sub='';}
+    if(['dep','sec','fam','sub'].includes(k))['dep','sec','fam','sub'].forEach(z=>{if(x[z])x._bad.delete(z);else x._bad.add(z);});}
+  summary();render();});
+['ftipo','fpend'].forEach(id=>$(id).onchange=render);$('fq').oninput=render;
+
+// ===================== salida =====================
+function outRows(){return S.rows.map(r=>{const c=codes(r);return [r.ref,r.talla,r.color,r.desc,c.dep,c.sec,c.fam,c.sub,c.marca,r.bc,r.cost,r.pvp,r.nombre,r.manga];});}
+function check(){const R=S.rows;const p=[];
+  const noC=R.filter(r=>{const c=codes(r);return c.dep===''||c.sec===''||c.fam===''||c.marca==='';});if(noC.length)p.push(noC.length+' filas sin código de departamento/sección/familia/marca');
+  const noP=R.filter(r=>r.pvp===''||r.cost==='');if(noP.length)p.push(noP.length+' filas sin PVP o costo');
+  return p;}
+const stamp=()=>new Date().toISOString().slice(0,10);
+// Excel para cargar en ICG con el mapping "ARTICULOS NUEVOS ZL1": títulos en la fila 1, datos desde la 2, las 14 columnas en orden.
+// Referencia, talla, color y código de barras van como texto (para que Excel no los convierta); códigos del árbol, costo y precio como número.
+function icgSheet(){
+  // Igual que la plantilla de la otra app: al lado de cada código del árbol va su nombre en una columna "… TXT"
+  // (solo para verificar; se borra a mano antes de cargar en ICG con el mapping).
+  const NAMEK={4:'dep',5:'sec',6:'fam',7:'sub',8:'marca'};
+  const H=[],K=[];MAP.forEach((h,k)=>{H.push(h);K.push(k);if(NAMEK[k]){H.push(h+' TXT');K.push('n'+k);}});
+  const A=outRows().map((a,i)=>{const r=S.rows[i];return K.map(k=>typeof k==='string'?String(r[NAMEK[+k.slice(1)]]||''):(k===10||k===11||(k>=4&&k<=8))?(a[k]===''||a[k]==null?'':+a[k]):String(a[k]==null?'':a[k]));});
+  const ws=XLSX.utils.aoa_to_sheet([H].concat(A));
+  const txtCols=K.map((k,c)=>[0,1,2,9].includes(k)?c:-1).filter(c=>c>=0);
+  for(let i=0;i<A.length;i++)for(const c of txtCols){const cell=ws[XLSX.utils.encode_cell({r:i+1,c})];if(cell){cell.t='s';cell.z='@';}}
+  ws['!cols']=K.map(k=>({wch:k===3?40:k===9?16:typeof k==='string'?18:12}));
+  return ws;
+}
+$('dlt').onclick=()=>{
+  const p=check();if(p.length&&!confirm('Faltan datos:\n- '+p.join('\n- ')+'\n\n¿Descargar de todas formas?'))return;
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,icgSheet(),'ARTICULOS NUEVOS');
+  XLSX.writeFile(wb,'ARTICULOS NUEVOS BK '+stamp()+'.xlsx');
+};
+function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);}
+
+slot('s_lista','lista',false);slot('s_ped','ped',true);
+$('go').onclick=analizar;
+loadData().then(()=>{const dlm=document.createElement('datalist');dlm.id='dlm';if(D.brands)dlm.innerHTML=RUNNING.filter(b=>D.brands.marca.has(b)).map(b=>'<option value="'+esc(b)+'">').join('');document.body.appendChild(dlm);});
+</script>
+</body>
+</html>
